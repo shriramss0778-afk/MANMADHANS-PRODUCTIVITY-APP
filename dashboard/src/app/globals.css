@@ -1,0 +1,479 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ----------------------------------------------------------------------------
+   SIRUTHAI PRODUCTIVITY — Design System
+   Futuristic, glassmorphic, dark-first productivity operating system.
+---------------------------------------------------------------------------- */
+
+:root {
+  /* Component-spec palette (course-design-cards) */
+  --clr-blue: #1890ff;
+  --clr-green: #01c3a8;
+  --clr-orange: #ffb741;
+  --clr-red: #a63d2a;
+  --bg-dark: #232228;
+  --bg-footer: #151419;
+  --color-white: #fff;
+  --color-gray-light: #ddd;
+  --color-gray-medium: #363636;
+  --color-gray-dark: #292929;
+  --color-gray-very-dark: #222127;
+
+  /* App surface system (dark-first) */
+  --background: #191919;
+  --background-2: #202020;
+  --foreground: #ece6dc;
+  --muted: #b2ab9f;
+  --card: #262626;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --ring: rgba(105, 140, 196, 0.45);
+
+  /* Themeable surface tokens (used by .glass / .glass-strong / chrome) */
+  --surface: #2b2b2b;
+  --surface-hover: #323232;
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --surface-strong-from: #282828;
+  --surface-strong-to: #242424;
+  --ring-line: rgba(255, 255, 255, 0.04);
+  --glow-color: rgba(0, 0, 0, 0.35);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.12);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+  /* Scrim painted over the fixed tech-image background */
+  --bg-scrim-top: rgba(25, 25, 25, 0.96);
+  --bg-scrim-mid: rgba(25, 25, 25, 0.98);
+  --bg-scrim-bottom: rgba(25, 25, 25, 1);
+
+  /* Accent gradients */
+  --accent-blue: #4a7fc1;
+  --accent-indigo: #5a6f9b;
+  --accent-purple: #7d6b90;
+  --accent-neon: #8f6f51;
+  --accent-cyan: #6f92b5;
+
+  --radius: 0.875rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+
+  --color-brand-blue: var(--accent-blue);
+  --color-brand-indigo: var(--accent-indigo);
+  --color-brand-purple: var(--accent-purple);
+  --color-brand-neon: var(--accent-neon);
+  --color-brand-cyan: var(--accent-cyan);
+
+  --font-sans: var(--font-inter-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.5rem);
+}
+
+/* Light mode override (dark mode is default) */
+.light {
+  --background: #f5f0e6;
+  --background-2: #fcf8f1;
+  --foreground: #1f1a14;
+  --muted: #554c43;
+  --card: #fffdfa;
+  --card-border: rgba(48, 39, 28, 0.14);
+  --ring: rgba(105, 140, 196, 0.28);
+
+  --surface: rgba(255, 253, 249, 0.9);
+  --surface-hover: rgba(243, 235, 223, 0.96);
+  --surface-border: rgba(48, 39, 28, 0.12);
+  --surface-strong-from: #fffdfa;
+  --surface-strong-to: #f2ebdf;
+  --ring-line: rgba(48, 39, 28, 0.08);
+  --glow-color: rgba(48, 39, 28, 0.14);
+  --scrollbar-thumb: rgba(48, 39, 28, 0.2);
+  --scrollbar-thumb-hover: rgba(48, 39, 28, 0.32);
+  --bg-scrim-top: rgba(245, 240, 230, 0.985);
+  --bg-scrim-mid: rgba(245, 240, 230, 0.992);
+  --bg-scrim-bottom: rgba(245, 240, 230, 1);
+}
+
+* {
+  border-color: var(--card-border);
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--background);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Reusable glass utilities ---------- */
+@layer components {
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  .glass-strong {
+    background: linear-gradient(180deg, var(--surface-strong-from), var(--surface-strong-to));
+    border: 1px solid var(--card-border);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .gradient-text {
+    color: var(--foreground);
+  }
+
+  .glow-ring {
+    box-shadow:
+      0 0 0 1px var(--ring-line),
+      0 12px 28px -18px var(--glow-color);
+  }
+}
+
+.light .glass {
+  background: var(--surface);
+  border-color: var(--surface-border);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.light .glass-strong {
+  background: linear-gradient(180deg, var(--surface-strong-from), var(--surface-strong-to));
+  border-color: var(--card-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 16px 34px -24px rgba(48, 39, 28, 0.18);
+}
+
+.light .glow-ring {
+  box-shadow:
+    0 0 0 1px var(--ring-line),
+    0 12px 24px -20px rgba(48, 39, 28, 0.18);
+}
+
+/* ---------- Custom scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
+/* ============================================================================
+   course-design-cards.tsx — original component styles (scoped to .course-cards)
+   ========================================================================== */
+.course-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.course-cards .card {
+  position: relative;
+  width: 260px;
+  border-radius: 18px;
+  padding: 1.25rem;
+  color: var(--color-white);
+  background: var(--bg-dark);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: hidden;
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.7);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.course-cards .card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 28px 60px -24px rgba(0, 0, 0, 0.8);
+}
+
+.course-cards .card.green { background: linear-gradient(160deg, var(--clr-green), #0c8c7c); }
+.course-cards .card.orange { background: linear-gradient(160deg, var(--clr-orange), #d98b1f); }
+.course-cards .card.red { background: linear-gradient(160deg, #d65339, var(--clr-red)); }
+.course-cards .card.blue { background: linear-gradient(160deg, var(--clr-blue), #0c63b8); }
+
+.course-cards .card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.course-cards .card .card-header .date {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.course-cards .card .card-header svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.course-cards .card .card-body h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  margin-bottom: 0.25rem;
+}
+
+.course-cards .card .card-body p {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  text-transform: capitalize;
+}
+
+.course-cards .card .card-body .progress {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.course-cards .card .card-body .progress .progress-bar {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+}
+
+.course-cards .card .card-body .progress .progress-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: var(--progress, 60%);
+  background: var(--color-white);
+  border-radius: 999px;
+}
+
+.course-cards .card .card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.course-cards .card .card-footer ul {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.course-cards .card .card-footer ul li:not(:first-child) {
+  margin-left: -10px;
+}
+
+.course-cards .card .card-footer ul li img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+}
+
+.course-cards .card .card-footer .btn-add {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-white);
+}
+
+.course-cards .card .card-footer .btn-add svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.course-cards .card .card-footer .btn-countdown {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--color-white);
+  text-decoration: none;
+}
+
+/* ============================================================================
+   geometric-sphere.tsx — animated wireframe sphere background
+   Tuning is driven by CSS custom properties set on the .gs-root element
+   from the component's CONFIG object.
+   ========================================================================== */
+
+.gs-root {
+  --primary: 139, 92, 246;
+  --secondary: 59, 130, 246;
+  --sphere-rotation-duration: 240s;
+  --grid-pan-duration: 180s;
+  --core-glow-duration: 25s;
+  --wire-opacity: 0.75;
+  --wire-shadow: 70px;
+}
+
+@keyframes sphereRotate {
+  from {
+    transform: rotateY(0deg) rotateX(0deg);
+  }
+  to {
+    transform: rotateY(360deg) rotateX(360deg);
+  }
+}
+
+@keyframes gridPan {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 100% 100%;
+  }
+}
+
+@keyframes coreGlow {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+    opacity: 1;
+  }
+}
+
+.panning-grid {
+  animation: gridPan var(--grid-pan-duration, 180s) linear infinite;
+}
+
+.core-light {
+  animation: coreGlow var(--core-glow-duration, 25s) ease-in-out infinite;
+}
+
+.sphere-container {
+  perspective: 1200px;
+}
+
+.sphere-rotation {
+  position: relative;
+  transform-style: preserve-3d;
+  animation: sphereRotate var(--sphere-rotation-duration, 240s) linear infinite;
+}
+
+.wireframe-line {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--primary), var(--wire-opacity));
+  box-shadow: 0 0 var(--wire-shadow) rgba(var(--primary), 0.45);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.vignette-overlay {
+  background: radial-gradient(circle at 50% 50%, transparent 38%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* Hero-mode foreground content (used by the demo) */
+.content-foreground {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(3, 7, 18, 0.25);
+}
+
+.hero-title {
+  font-size: clamp(2.5rem, 7vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.hero-gradient {
+  background: linear-gradient(
+    90deg,
+    rgba(var(--secondary), 1),
+    rgba(var(--primary), 1)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-sub {
+  margin: 1.25rem auto 0;
+  max-width: 42rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  line-height: 1.6;
+}
+
+.hero-cta {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.hero-cta .btn-primary {
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.75rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(90deg, rgb(var(--secondary)), rgb(var(--primary)));
+  box-shadow: 0 12px 40px -12px rgba(var(--primary), 0.6);
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+.hero-cta .btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.hero-cta .btn-ghost {
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.03);
+  transition: background 0.2s ease;
+}
+.hero-cta .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .sphere-rotation,
+  .panning-grid,
+  .core-light {
+    animation: none !important;
+  }
+}

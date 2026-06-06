@@ -1,0 +1,8 @@
+CREATE TABLE "public"."AppSettings" (
+  "id" TEXT NOT NULL,
+  "accessPortalUrl" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT "AppSettings_pkey" PRIMARY KEY ("id")
+);

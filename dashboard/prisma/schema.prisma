@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum RevisionStatus {
+  FRESH
+  DUE
+  OVERDUE
+  MASTERED
+}
+
+enum BookStatus {
+  READING
+  COMPLETED
+  WISHLIST
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum GoalScope {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum EventType {
+  FOCUS
+  MEETING
+  REVISION
+  HABIT
+  DEADLINE
+  BREAK
+}
+
+enum NoteKind {
+  SCRATCHPAD
+  QUICK_CAPTURE
+}
+
+enum Mood {
+  GREAT
+  GOOD
+  OKAY
+  LOW
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  passwordHash   String?
+  name           String
+  role           Role           @default(USER)
+  isActive       Boolean        @default(true)
+  googleLoginEnabled Boolean    @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  refreshTokens  RefreshToken[]
+  knowledge      KnowledgeEntry[]
+  books          Book[]
+  tasks          Task[]
+  calendarEvents CalendarEvent[]
+  habits         Habit[]
+  weeklyTodos    WeeklyTodo[]
+  notes          Note[]
+  reflections    Reflection[]
+  timerSettings  TimerSettings?
+  focusSessions  FocusSession[]
+
+  @@index([role])
+}
+
+model AppSettings {
+  id              String   @id @default(cuid())
+  accessPortalUrl String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model TimerSettings {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  focus     Int      @default(25)
+  short     Int      @default(5)
+  long      Int      @default(15)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeEntry {
+  id             String         @id @default(cuid())
+  userId         String
+  title          String
+  category       String
+  tags           String[]
+  sourceType     String
+  sourceLink     String?
+  notes          String
+  dateLearned    DateTime
+  progress       Int
+  revisionStatus RevisionStatus @default(FRESH)
+  lastReviewed   DateTime?
+  nextReview     DateTime?
+  retention      Int
+  thumbnail      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dateLearned(sort: Desc)])
+  @@index([userId, revisionStatus])
+  @@index([userId, category])
+}
+
+model Book {
+  id            String     @id @default(cuid())
+  userId        String
+  title         String
+  author        String
+  cover         String
+  category      String
+  status        BookStatus
+  totalPages    Int
+  pagesRead     Int
+  rating        Int?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  highlights    String[]
+  favoriteQuote String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, category])
+}
+
+model Task {
+  id          String      @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  status      TaskStatus  @default(PENDING)
+  priority    Priority    @default(MEDIUM)
+  deadline    DateTime?
+  tags        String[]
+  goalScope   GoalScope   @default(DAILY)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subtasks    Subtask[]
+
+  @@index([userId, status])
+  @@index([userId, deadline])
+  @@index([userId, priority])
+}
+
+model Subtask {
+  id        String   @id @default(cuid())
+  taskId     String
+  title      String
+  done       Boolean @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model CalendarEvent {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  type      EventType
+  typeLabel String?
+  date      DateTime
+  startTime String
+  endTime   String
+  color     String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, type])
+}
+
+model Habit {
+  id          String     @id @default(cuid())
+  userId      String
+  name        String
+  icon        String
+  color       String
+  streak      Int        @default(0)
+  goalPerWeek Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs        HabitLog[]
+
+  @@index([userId, name])
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId    String
+  date       DateTime
+  done       Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  habit      Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([date])
+}
+
+model WeeklyTodo {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime
+  title     String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@index([userId, done])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      NoteKind
+  title     String?
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+model Reflection {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime
+  mood      Mood
+  gratitude String
+  wins      String
+  improve   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date(sort: Desc)])
+}
+
+model FocusSession {
+  id            String   @id @default(cuid())
+  userId        String
+  mode          String
+  durationMins  Int
+  completedAt   DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, completedAt(sort: Desc)])
+}
