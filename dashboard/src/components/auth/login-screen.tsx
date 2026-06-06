@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Script from "next/script";
-import { Eye, EyeOff, Globe } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -200,16 +200,6 @@ export function LoginScreen({ loading, onPasswordLogin, onGoogleLogin }: LoginSc
             Add `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to `.env` to enable Google sign-in.
           </div>
         )}
-
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70">
-          <div className="flex items-center gap-2 text-white">
-            <Globe className="size-4 text-brand-cyan" />
-            Google-only access
-          </div>
-          <p className="mt-2 leading-6">
-            Only users created and approved in the Identity Matrix can enter the app.
-          </p>
-        </div>
 
         {error && <p className="mt-5 text-center text-sm text-rose-400">{error}</p>}
       </div>

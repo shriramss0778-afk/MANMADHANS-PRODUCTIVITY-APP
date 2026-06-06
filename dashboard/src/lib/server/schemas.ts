@@ -109,7 +109,7 @@ export const focusSessionSchema = z.object({
 });
 
 export const authLoginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email(),
   password: z.string().min(8),
 });
 
@@ -124,3 +124,19 @@ export const managedUserSchema = z.object({
 export const appSettingsSchema = z.object({
   accessPortalUrl: z.string().url(),
 });
+
+export const profileSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  readingGoal: z.coerce.number().int().min(1).max(500).optional(),
+});
+
+export const changePasswordSchema = z
+  .object({
+    oldPassword: z.string().min(8),
+    newPassword: z.string().min(8),
+    confirmPassword: z.string().min(8),
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Passwords do not match",
+  });

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -32,10 +33,13 @@ import {
   logoutSession,
   saveReflection as persistReflection,
   saveScratchpad as persistScratchpad,
+  changePassword as persistPasswordChange,
+  updateReadingGoal as persistReadingGoal,
   updateBook as persistBook,
   updateEvent as persistEvent,
   updateHabit as persistHabit,
   updateKnowledge as persistKnowledge,
+  updateProfileName as persistProfileName,
   updateTask as persistTask,
   updateTimerSettings as persistTimerSettings,
   updateWeeklyTodo as persistWeeklyTodo,
@@ -80,6 +84,9 @@ interface StoreValue {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfileName: (name: string) => Promise<void>;
+  updateReadingGoal: (readingGoal: number) => Promise<void>;
+  changePassword: (oldPassword: string, newPassword: string, confirmPassword: string) => Promise<void>;
   analytics: AnalyticsPayload;
   scratchpad: AppNote | null;
   quickCapture: AppNote[];
@@ -115,7 +122,7 @@ interface StoreValue {
   timerSettings: TimerSettings;
   setTimerSetting: (mode: keyof TimerSettings, minutes: number) => Promise<void>;
   resetTimerSettings: () => Promise<void>;
-  saveScratchpad: (content: string, title?: string) => Promise<void>;
+  saveScratchpad: (content: string, title?: string) => Promise<AppNote>;
   addQuickCapture: (content: string, title?: string) => Promise<void>;
   removeQuickCapture: (id: string) => Promise<void>;
   saveReflection: (entry: Omit<ReflectionEntry, "id">) => Promise<void>;
@@ -146,6 +153,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [weeklyTodos, setWeeklyTodos] = useState<WeeklyTodo[]>([]);
   const [timerSettings, setTimerSettings] = useState<TimerSettings>(DEFAULT_TIMER_SETTINGS);
+  const scratchpadSaveRequestRef = useRef(0);
 
   const applyBootstrapState = useCallback((data: Awaited<ReturnType<typeof bootstrapApp>>) => {
     if (data.accessToken) {
@@ -232,6 +240,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, [resetSessionState]);
+
+  const updateProfileName = useCallback(async (name: string) => {
+    const nextUser = await persistProfileName(name);
+    setUser(nextUser);
+  }, []);
+
+  const updateReadingGoal = useCallback(async (readingGoal: number) => {
+    const nextUser = await persistReadingGoal(readingGoal);
+    setUser(nextUser);
+  }, []);
+
+  const changePassword = useCallback(async (oldPassword: string, newPassword: string, confirmPassword: string) => {
+    const nextUser = await persistPasswordChange(oldPassword, newPassword, confirmPassword);
+    setUser(nextUser);
+  }, []);
 
   const refreshAnalytics = useCallback(async () => {
     const next = await fetchAnalytics();
@@ -384,8 +407,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const saveScratchpad = useCallback(async (content: string, title?: string) => {
+    const requestId = scratchpadSaveRequestRef.current + 1;
+    scratchpadSaveRequestRef.current = requestId;
     const saved = await persistScratchpad(content, title);
-    setScratchpad(saved);
+    if (requestId === scratchpadSaveRequestRef.current) {
+      setScratchpad(saved);
+    }
+    return saved;
   }, []);
 
   const addQuickCapture = useCallback(async (content: string, title?: string) => {
@@ -423,6 +451,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     login,
     loginWithGoogle: handleGoogleLogin,
     logout,
+    updateProfileName,
+    updateReadingGoal,
+    changePassword,
     analytics,
     scratchpad,
     quickCapture,
@@ -471,6 +502,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     login,
     handleGoogleLogin,
     logout,
+    updateProfileName,
+    updateReadingGoal,
+    changePassword,
     analytics,
     scratchpad,
     quickCapture,

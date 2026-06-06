@@ -61,7 +61,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
               <Link href="/" onClick={onClose} className="flex items-center gap-3">
                 <div className="grid size-10 place-items-center rounded-xl border border-card-border bg-[var(--surface)] p-[2px]">
                   <Image
-                    src="/logo.jpeg"
+                    src="/APP LOGO.jpeg"
                     alt="Manmadhan's Productivity logo"
                     width={40}
                     height={40}
@@ -70,7 +70,7 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-bold leading-tight">MANMADHAN&apos;S PRODUCTIVITY</p>
-                  <p className="text-[11px] text-muted">Private command center</p>
+                  <p className="text-[11px] text-muted">Private Productivity</p>
                 </div>
               </Link>
               <button

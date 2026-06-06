@@ -51,6 +51,8 @@ export async function POST(request: Request) {
         role: body.role as never,
         isActive: true as never,
         googleLoginEnabled: true as never,
+        passwordChangeRequired: true as never,
+        readingGoal: 24,
         passwordHash,
         timerSettings: {
           create: {

@@ -176,6 +176,8 @@ export interface AuthenticatedUser {
   email: string;
   name: string;
   role: "SUPER_ADMIN" | "ADMIN" | "USER";
+  passwordChangeRequired: boolean;
+  readingGoal: number;
 }
 
 export interface ManagedUser {

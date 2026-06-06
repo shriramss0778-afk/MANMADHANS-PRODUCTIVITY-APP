@@ -1,19 +1,22 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, Quote, BookMarked, Trash2 } from "lucide-react";
+import { Star, Quote, BookMarked, Trash2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { AddBookDialog } from "@/components/dashboard/add-book-dialog";
 import type { Book } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function BookCard({
   book,
   index = 0,
+  onEdit,
   onDelete,
 }: {
   book: Book;
   index?: number;
+  onEdit?: (book: Book) => void;
   onDelete?: (id: string) => void;
 }) {
   const pct = Math.round((book.pagesRead / book.totalPages) * 100);
@@ -58,6 +61,21 @@ export function BookCard({
             >
               {book.status}
             </Badge>
+            {onEdit && (
+              <AddBookDialog
+                book={book}
+                onUpdate={onEdit}
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={`Edit ${book.title}`}
+                    className="grid size-7 place-items-center rounded-lg bg-[var(--surface)] text-muted transition-all hover:bg-[var(--surface-hover)] hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] md:opacity-0 md:group-hover:opacity-100"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                }
+              />
+            )}
             {onDelete && (
               <button
                 type="button"

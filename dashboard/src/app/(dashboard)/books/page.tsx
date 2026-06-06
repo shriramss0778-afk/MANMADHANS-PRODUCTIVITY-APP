@@ -2,22 +2,35 @@
 
 import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
-import { BookOpen, CheckCircle2, Flame, Target } from "lucide-react";
+import { BookOpen, CheckCircle2, Flame, Pencil, Target } from "lucide-react";
 import { Heatmap } from "@/components/analytics/heatmap";
 import { WeeklyBars } from "@/components/analytics/charts";
 import { AddBookDialog } from "@/components/dashboard/add-book-dialog";
 import { BookCard } from "@/components/dashboard/book-card";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CircularProgress } from "@/components/ui/circular-progress";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStore } from "@/lib/store";
 import type { BookStatus } from "@/lib/types";
 
 export default function BooksPage() {
-  const { books, addBook, removeBook, analytics } = useStore();
+  const { user, books, addBook, updateBook, removeBook, updateReadingGoal, analytics } = useStore();
   const [tab, setTab] = useState<BookStatus | "all">("all");
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [goalInput, setGoalInput] = useState(String(user?.readingGoal ?? 24));
 
   const filtered = tab === "all" ? books : books.filter((b) => b.status === tab);
   const completed = books.filter((b) => b.status === "completed").length;
@@ -29,7 +42,14 @@ export default function BooksPage() {
     return bDate - aDate;
   })[0];
   const totalPages = books.reduce((sum, book) => sum + book.pagesRead, 0);
-  const yearGoal = 24;
+  const yearGoal = user?.readingGoal ?? 24;
+
+  const saveReadingGoal = async () => {
+    const nextGoal = Math.max(1, parseInt(goalInput, 10) || yearGoal || 24);
+    await updateReadingGoal(nextGoal);
+    setGoalInput(String(nextGoal));
+    setGoalOpen(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -67,7 +87,57 @@ export default function BooksPage() {
 
         <Card className="flex flex-col items-center justify-center">
           <CardHeader className="items-center">
-            <CardTitle>2026 reading goal</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>2026 reading goal</CardTitle>
+              <Dialog
+                open={goalOpen}
+                onOpenChange={(open) => {
+                  setGoalOpen(open);
+                  if (open) {
+                    setGoalInput(String(yearGoal));
+                  }
+                }}
+              >
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Edit reading goal"
+                    className="grid size-8 place-items-center rounded-lg bg-[var(--surface)] text-muted transition-all hover:bg-[var(--surface-hover)] hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Edit reading goal</DialogTitle>
+                    <DialogDescription>
+                      Update the total number of books you want to finish this year.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground" htmlFor="reading-goal">
+                      Number of books
+                    </label>
+                    <Input
+                      id="reading-goal"
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={goalInput}
+                      onChange={(event) => setGoalInput(event.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="secondary" onClick={() => setGoalOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => void saveReadingGoal()}>
+                      Save goal
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-3">
             <CircularProgress
@@ -107,7 +177,13 @@ export default function BooksPage() {
           <div className="grid gap-5 md:grid-cols-2">
             <AnimatePresence mode="popLayout">
               {filtered.map((book, index) => (
-                <BookCard key={book.id} book={book} index={index} onDelete={removeBook} />
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  index={index}
+                  onEdit={updateBook}
+                  onDelete={removeBook}
+                />
               ))}
             </AnimatePresence>
           </div>

@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpenText, Save, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
+
+const AUTOSAVE_DELAY_MS = 450;
+
+type DraftSnapshot = {
+  title: string;
+  content: string;
+  updatedAt?: string;
+};
 
 export default function NotepadPage() {
   const {
@@ -19,22 +27,105 @@ export default function NotepadPage() {
   } = useStore();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const draftRef = useRef<DraftSnapshot>({ title: "", content: "" });
+  const savedRef = useRef<DraftSnapshot>({ title: "", content: "" });
+  const initializedRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    setTitle(scratchpad?.title ?? "");
-    setContent(scratchpad?.content ?? "");
-  }, [scratchpad?.title, scratchpad?.content]);
+    const remoteDraft = {
+      title: scratchpad?.title ?? "",
+      content: scratchpad?.content ?? "",
+      updatedAt: scratchpad?.updatedAt,
+    };
+    const localDraft = draftRef.current;
+    const hasUnsavedChanges =
+      localDraft.title !== savedRef.current.title || localDraft.content !== savedRef.current.content;
+    const matchesLocalDraft =
+      remoteDraft.title === localDraft.title && remoteDraft.content === localDraft.content;
+    const shouldHydrate =
+      !initializedRef.current || matchesLocalDraft || !hasUnsavedChanges;
 
-  const updateDraft = async (nextTitle: string, nextContent: string) => {
+    if (!shouldHydrate) {
+      return;
+    }
+
+    initializedRef.current = true;
+    savedRef.current = remoteDraft;
+    draftRef.current = remoteDraft;
+    setTitle(remoteDraft.title);
+    setContent(remoteDraft.content);
+    setSaveState("saved");
+  }, [scratchpad?.title, scratchpad?.content, scratchpad?.updatedAt]);
+
+  useEffect(() => {
+    if (!hydrated || !initializedRef.current) {
+      return;
+    }
+
+    const hasChanges =
+      title !== savedRef.current.title || content !== savedRef.current.content;
+
+    if (!hasChanges) {
+      setSaveState("saved");
+      return;
+    }
+
+    setSaveState("saving");
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      const saveId = requestIdRef.current + 1;
+      requestIdRef.current = saveId;
+      const nextTitle = title.trim();
+      const outgoingDraft = {
+        title,
+        content,
+      };
+
+      void saveScratchpad(content, nextTitle || undefined)
+        .then((savedNote) => {
+          savedRef.current = {
+            title: savedNote.title ?? "",
+            content: savedNote.content,
+            updatedAt: savedNote.updatedAt,
+          };
+
+          if (
+            draftRef.current.title === outgoingDraft.title &&
+            draftRef.current.content === outgoingDraft.content &&
+            saveId === requestIdRef.current
+          ) {
+            setSaveState("saved");
+          }
+        })
+        .catch(() => {
+          if (saveId === requestIdRef.current) {
+            setSaveState("error");
+          }
+        });
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [content, hydrated, saveScratchpad, title]);
+
+  const updateDraft = (nextTitle: string, nextContent: string) => {
+    draftRef.current = { title: nextTitle, content: nextContent };
     setTitle(nextTitle);
     setContent(nextContent);
-    await saveScratchpad(nextContent, nextTitle || undefined);
   };
 
-  const clearDraft = async () => {
-    setTitle("");
-    setContent("");
-    await saveScratchpad("", undefined);
+  const clearDraft = () => {
+    updateDraft("", "");
   };
 
   const saveNote = async () => {
@@ -43,11 +134,11 @@ export default function NotepadPage() {
     if (!trimmedContent) return;
 
     await addQuickCapture(trimmedContent, trimmedTitle || "Untitled note");
-    await clearDraft();
+    clearDraft();
   };
 
-  const loadNote = async (savedTitle: string | undefined, savedContent: string) => {
-    await updateDraft(savedTitle ?? "", savedContent);
+  const loadNote = (savedTitle: string | undefined, savedContent: string) => {
+    updateDraft(savedTitle ?? "", savedContent);
   };
 
   return (
@@ -72,7 +163,13 @@ export default function NotepadPage() {
           <CardHeader>
             <CardTitle>Current draft</CardTitle>
             <p className="text-sm text-muted">
-              {hydrated ? "Saved automatically while you type." : "Loading your draft..."}
+              {!hydrated
+                ? "Loading your draft..."
+                : saveState === "saving"
+                  ? "Saving in the background..."
+                  : saveState === "error"
+                    ? "Autosave paused. Keep typing and try again in a moment."
+                    : "Saved automatically while you type."}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -80,7 +177,7 @@ export default function NotepadPage() {
               <label className="mb-1.5 block text-xs font-medium text-muted">Note name</label>
               <Input
                 value={title}
-                onChange={(e) => void updateDraft(e.target.value, content)}
+                onChange={(e) => updateDraft(e.target.value, content)}
                 placeholder="Meeting ideas, daily brain dump..."
               />
             </div>
@@ -89,7 +186,7 @@ export default function NotepadPage() {
               <label className="mb-1.5 block text-xs font-medium text-muted">Content</label>
               <Textarea
                 value={content}
-                onChange={(e) => void updateDraft(title, e.target.value)}
+                onChange={(e) => updateDraft(title, e.target.value)}
                 placeholder="Start typing..."
                 className="min-h-[62vh] resize-none rounded-2xl bg-background/40 p-5 text-base leading-7 md:min-h-[70vh] lg:min-h-[calc(100vh-22rem)]"
               />
@@ -114,7 +211,7 @@ export default function NotepadPage() {
                 <div className="flex items-start justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => void loadNote(note.title, note.content)}
+                    onClick={() => loadNote(note.title, note.content)}
                     className="min-w-0 flex-1 text-left"
                   >
                     <p className="truncate text-sm font-semibold text-foreground">

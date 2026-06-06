@@ -232,6 +232,8 @@ export async function ensureDefaultAdmin() {
         role: "SUPER_ADMIN" as never,
         isActive: true as never,
         googleLoginEnabled: true as never,
+        passwordChangeRequired: false as never,
+        readingGoal: existing.readingGoal ?? 24,
         timerSettings: existing.id
           ? {
               upsert: {
@@ -256,6 +258,8 @@ export async function ensureDefaultAdmin() {
       role: "SUPER_ADMIN" as never,
       isActive: true as never,
       googleLoginEnabled: true as never,
+      passwordChangeRequired: false as never,
+      readingGoal: 24,
       timerSettings: {
         create: {
           focus: 25,

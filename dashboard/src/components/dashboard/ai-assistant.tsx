@@ -89,7 +89,7 @@ export function AiAssistant() {
             <div className="flex items-center gap-2 border-b border-card-border p-3 sm:p-4">
               <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-cyan to-brand-purple p-[2px]">
                 <Image
-                  src="/logo.jpeg"
+                  src="/APP LOGO.jpeg"
                   alt="Manmadhan's Productivity"
                   width={36}
                   height={36}

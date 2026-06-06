@@ -10,6 +10,7 @@ import {
   NotebookPen,
   Timer,
   ShieldCheck,
+  UserRoundCog,
 } from "lucide-react";
 
 export interface NavItem {
@@ -27,6 +28,7 @@ export const navItems: NavItem[] = [
   { label: "Calendar", href: "/calendar", icon: CalendarDays, description: "Time blocking & schedule" },
   { label: "Analytics", href: "/analytics", icon: BarChart3, description: "Progress & insights" },
   { label: "Identity Matrix", href: "/identity-matrix", icon: ShieldCheck, description: "Users, roles & access" },
+  { label: "My Profile", href: "/my-profile", icon: UserRoundCog, description: "Account & password settings" },
   { label: "Weekly", href: "/weekly", icon: CalendarRange, description: "Weekly to-dos & habits" },
   { label: "Notepad", href: "/notepad", icon: NotebookPen, description: "Quick notes & scratchpad" },
   { label: "Focus", href: "/focus", icon: Timer, description: "Pomodoro & deep work" },

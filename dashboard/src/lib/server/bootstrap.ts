@@ -67,6 +67,8 @@ export async function getBootstrapState(userId?: string) {
       email: user.email,
       name: user.name,
       role: user.role,
+      passwordChangeRequired: user.passwordChangeRequired,
+      readingGoal: user.readingGoal,
     },
     timerSettings: mapTimerSettings(user.timerSettings),
     knowledge: knowledge.map(mapKnowledgeEntry),

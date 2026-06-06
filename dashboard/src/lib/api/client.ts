@@ -27,8 +27,12 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     const requestUrl = String(originalRequest?.url ?? "");
     const isAuthRoute = requestUrl.startsWith("/auth/");
+    const apiMessage = error.response?.data?.error?.message;
 
     if (error.response?.status !== 401 || originalRequest?._retry || isAuthRoute) {
+      if (apiMessage) {
+        error.message = apiMessage;
+      }
       throw error;
     }
 
@@ -51,6 +55,9 @@ api.interceptors.response.use(
 
     const token = await refreshPromise;
     if (!token) {
+      if (apiMessage) {
+        error.message = apiMessage;
+      }
       throw error;
     }
 

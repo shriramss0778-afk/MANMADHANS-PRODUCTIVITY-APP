@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, BookOpen, ImageOff } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Plus, BookOpen, ImageOff, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -32,10 +32,13 @@ const DEFAULT_COVER =
   "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=600&q=80";
 
 interface AddBookDialogProps {
-  onAdd: (book: Book) => void;
+  onAdd?: (book: Book) => void;
+  onUpdate?: (book: Book) => void;
+  book?: Book | null;
+  trigger?: ReactNode;
 }
 
-export function AddBookDialog({ onAdd }: AddBookDialogProps) {
+export function AddBookDialog({ onAdd, onUpdate, book, trigger }: AddBookDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
@@ -45,17 +48,24 @@ export function AddBookDialog({ onAdd }: AddBookDialogProps) {
   const [totalPages, setTotalPages] = useState("");
   const [pagesRead, setPagesRead] = useState("");
   const [imgError, setImgError] = useState(false);
+  const isEdit = !!book;
 
   const reset = () => {
-    setTitle("");
-    setAuthor("");
-    setCover("");
-    setCategory("Technology");
-    setStatus("reading");
-    setTotalPages("");
-    setPagesRead("");
+    setTitle(book?.title ?? "");
+    setAuthor(book?.author ?? "");
+    setCover(book?.cover ?? "");
+    setCategory(book?.category ?? "Technology");
+    setStatus(book?.status ?? "reading");
+    setTotalPages(book ? String(book.totalPages) : "");
+    setPagesRead(book ? String(book.pagesRead) : "");
     setImgError(false);
   };
+
+  useEffect(() => {
+    if (open) {
+      reset();
+    }
+  }, [book, open]);
 
   const canSubmit =
     title.trim().length > 0 && author.trim().length > 0 && category.trim().length > 0;
@@ -68,8 +78,8 @@ export function AddBookDialog({ onAdd }: AddBookDialogProps) {
     const read =
       status === "completed" ? total : Math.min(total, Math.max(0, readRaw));
 
-    const book: Book = {
-      id: `b-${Date.now()}`,
+    const nextBook: Book = {
+      id: book?.id ?? `b-${Date.now()}`,
       title: title.trim(),
       author: author.trim(),
       cover: cover.trim() || DEFAULT_COVER,
@@ -78,12 +88,22 @@ export function AddBookDialog({ onAdd }: AddBookDialogProps) {
       totalPages: total,
       pagesRead: read,
       startedAt:
-        status !== "wishlist" ? new Date().toISOString().slice(0, 10) : undefined,
+        status !== "wishlist"
+          ? book?.startedAt ?? new Date().toISOString().slice(0, 10)
+          : undefined,
       finishedAt:
-        status === "completed" ? new Date().toISOString().slice(0, 10) : undefined,
-      highlights: [],
+        status === "completed"
+          ? book?.finishedAt ?? new Date().toISOString().slice(0, 10)
+          : undefined,
+      highlights: book?.highlights ?? [],
+      favoriteQuote: book?.favoriteQuote,
+      rating: book?.rating,
     };
-    onAdd(book);
+    if (isEdit) {
+      onUpdate?.(nextBook);
+    } else {
+      onAdd?.(nextBook);
+    }
     reset();
     setOpen(false);
   };
@@ -97,16 +117,20 @@ export function AddBookDialog({ onAdd }: AddBookDialogProps) {
       }}
     >
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" /> Add book
-        </Button>
+        {trigger ?? (
+          <Button>
+            <Plus className="size-4" /> Add book
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add a book</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit book" : "Add a book"}</DialogTitle>
           <DialogDescription>
-            Paste a cover image URL for the artwork, or leave it blank for a default cover.
+            {isEdit
+              ? "Update the cover, status, and reading progress for this book."
+              : "Paste a cover image URL for the artwork, or leave it blank for a default cover."}
           </DialogDescription>
         </DialogHeader>
 
@@ -234,7 +258,8 @@ export function AddBookDialog({ onAdd }: AddBookDialogProps) {
             Cancel
           </Button>
           <Button onClick={submit} disabled={!canSubmit}>
-            <Plus className="size-4" /> Add book
+            {isEdit ? <Pencil className="size-4" /> : <Plus className="size-4" />}
+            {isEdit ? "Save changes" : "Add book"}
           </Button>
         </DialogFooter>
       </DialogContent>

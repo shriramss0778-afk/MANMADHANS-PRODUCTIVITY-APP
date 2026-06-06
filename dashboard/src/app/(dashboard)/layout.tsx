@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { LoginScreen } from "@/components/auth/login-screen";
+import { PasswordChangeGate } from "@/components/auth/password-change-gate";
 import { StoreProvider } from "@/lib/store";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Topbar } from "@/components/dashboard/topbar";
@@ -22,6 +23,10 @@ function DashboardShell({ children }: { children: ReactNode }) {
         onGoogleLogin={loginWithGoogle}
       />
     );
+  }
+
+  if (user.passwordChangeRequired) {
+    return <PasswordChangeGate />;
   }
 
   return (

@@ -68,6 +68,25 @@ export async function loginWithGoogle(credential: string) {
   return response.data;
 }
 
+export async function updateProfileName(name: string) {
+  const response = await api.patch("/profile", { name });
+  return unwrap<AuthenticatedUser>(response);
+}
+
+export async function updateReadingGoal(readingGoal: number) {
+  const response = await api.patch("/profile", { readingGoal });
+  return unwrap<AuthenticatedUser>(response);
+}
+
+export async function changePassword(oldPassword: string, newPassword: string, confirmPassword: string) {
+  const response = await api.post("/profile/password", {
+    oldPassword,
+    newPassword,
+    confirmPassword,
+  });
+  return unwrap<AuthenticatedUser>(response);
+}
+
 export async function fetchManagedUsers() {
   const response = await api.get("/users");
   return unwrap<ManagedUser[]>(response);

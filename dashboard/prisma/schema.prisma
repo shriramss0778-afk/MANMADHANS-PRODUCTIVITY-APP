@@ -74,6 +74,8 @@ model User {
   role           Role           @default(USER)
   isActive       Boolean        @default(true)
   googleLoginEnabled Boolean    @default(true)
+  passwordChangeRequired Boolean @default(false)
+  readingGoal    Int            @default(24)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   refreshTokens  RefreshToken[]
