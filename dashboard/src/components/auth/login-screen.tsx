@@ -55,8 +55,8 @@ export function LoginScreen({ loading, onPasswordLogin, onGoogleLogin }: LoginSc
         setError("");
         try {
           await onGoogleLogin(credential);
-        } catch {
-          setError("This Google account is not authorized for this app.");
+        } catch (loginError) {
+          setError(loginError instanceof Error ? loginError.message : "This Google account is not authorized for this app.");
         }
       },
     });
@@ -75,9 +75,9 @@ export function LoginScreen({ loading, onPasswordLogin, onGoogleLogin }: LoginSc
     event.preventDefault();
     setError("");
     try {
-      await onPasswordLogin(email, password);
-    } catch {
-      setError("Invalid email or password.");
+      await onPasswordLogin(email.trim(), password);
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Unable to sign in.");
     }
   };
 
@@ -106,6 +106,7 @@ export function LoginScreen({ loading, onPasswordLogin, onGoogleLogin }: LoginSc
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="name@example.com"
+              autoComplete="email"
               disabled={loading}
               className="h-14 rounded-xl border-white/10 bg-black/80 px-4 text-base text-white placeholder:text-white/35"
             />
@@ -130,7 +131,8 @@ export function LoginScreen({ loading, onPasswordLogin, onGoogleLogin }: LoginSc
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="••••••••"
+                placeholder="********"
+                autoComplete="current-password"
                 disabled={loading}
                 className="h-14 rounded-xl border-white/10 bg-black/80 px-4 pr-14 text-base text-white placeholder:text-white/35"
               />
