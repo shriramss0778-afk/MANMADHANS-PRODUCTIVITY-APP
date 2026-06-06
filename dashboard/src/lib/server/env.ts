@@ -11,19 +11,37 @@ const envSchema = z.object({
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: z.string().optional(),
   DEFAULT_ADMIN_EMAIL: z.string().email(),
   DEFAULT_ADMIN_PASSWORD: z.string().min(8),
-  DEFAULT_ADMIN_NAME: z.string().min(1),
+  DEFAULT_ADMIN_NAME: z.string().min(1).default("Super Admin"),
 });
 
-export const env = envSchema.parse({
-  DATABASE_URL: process.env.DATABASE_URL,
-  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
-  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
-  JWT_ACCESS_EXPIRES_IN_MINUTES: process.env.JWT_ACCESS_EXPIRES_IN_MINUTES,
-  JWT_REFRESH_EXPIRES_IN_DAYS: process.env.JWT_REFRESH_EXPIRES_IN_DAYS,
-  APP_URL: process.env.APP_URL,
-  CORS_ORIGIN: process.env.CORS_ORIGIN,
-  NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-  DEFAULT_ADMIN_EMAIL: process.env.DEFAULT_ADMIN_EMAIL,
-  DEFAULT_ADMIN_PASSWORD: process.env.DEFAULT_ADMIN_PASSWORD,
-  DEFAULT_ADMIN_NAME: process.env.DEFAULT_ADMIN_NAME,
+type Env = z.infer<typeof envSchema>;
+
+let cachedEnv: Env | null = null;
+
+function loadEnv(): Env {
+  if (cachedEnv) {
+    return cachedEnv;
+  }
+
+  cachedEnv = envSchema.parse({
+    DATABASE_URL: process.env.DATABASE_URL,
+    JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
+    JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
+    JWT_ACCESS_EXPIRES_IN_MINUTES: process.env.JWT_ACCESS_EXPIRES_IN_MINUTES,
+    JWT_REFRESH_EXPIRES_IN_DAYS: process.env.JWT_REFRESH_EXPIRES_IN_DAYS,
+    APP_URL: process.env.APP_URL,
+    CORS_ORIGIN: process.env.CORS_ORIGIN,
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+    DEFAULT_ADMIN_EMAIL: process.env.DEFAULT_ADMIN_EMAIL,
+    DEFAULT_ADMIN_PASSWORD: process.env.DEFAULT_ADMIN_PASSWORD,
+    DEFAULT_ADMIN_NAME: process.env.DEFAULT_ADMIN_NAME ?? "Super Admin",
+  });
+
+  return cachedEnv;
+}
+
+export const env = new Proxy({} as Env, {
+  get(_target, property) {
+    return loadEnv()[property as keyof Env];
+  },
 });
