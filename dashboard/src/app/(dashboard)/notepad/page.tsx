@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
+import { getErrorMessage } from "@/lib/api/errors";
 
 const AUTOSAVE_DELAY_MS = 450;
+const AUTOSAVE_FAILED_MESSAGE = "Autosave failed. Keep typing and it will retry.";
 
 type DraftSnapshot = {
   title: string;
@@ -24,10 +26,12 @@ export default function NotepadPage() {
     saveScratchpad,
     addQuickCapture,
     removeQuickCapture,
+    runAction,
   } = useStore();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const draftRef = useRef<DraftSnapshot>({ title: "", content: "" });
   const savedRef = useRef<DraftSnapshot>({ title: "", content: "" });
   const initializedRef = useRef(false);
@@ -102,11 +106,14 @@ export default function NotepadPage() {
             saveId === requestIdRef.current
           ) {
             setSaveState("saved");
+            setSaveErrorMessage(null);
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error("Scratchpad autosave failed", error);
           if (saveId === requestIdRef.current) {
             setSaveState("error");
+            setSaveErrorMessage(getErrorMessage(error, AUTOSAVE_FAILED_MESSAGE));
           }
         });
     }, AUTOSAVE_DELAY_MS);
@@ -128,13 +135,15 @@ export default function NotepadPage() {
     updateDraft("", "");
   };
 
-  const saveNote = async () => {
+  const saveNote = () => {
     const trimmedContent = content.trim();
     const trimmedTitle = title.trim();
     if (!trimmedContent) return;
 
-    await addQuickCapture(trimmedContent, trimmedTitle || "Untitled note");
-    clearDraft();
+    runAction(async () => {
+      await addQuickCapture(trimmedContent, trimmedTitle || "Untitled note");
+      clearDraft();
+    }, "Could not save this note.");
   };
 
   const loadNote = (savedTitle: string | undefined, savedContent: string) => {
@@ -148,10 +157,10 @@ export default function NotepadPage() {
         subtitle="Write with a note name, save it, and reopen older notes anytime."
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => void clearDraft()}>
+            <Button variant="secondary" onClick={clearDraft}>
               <Trash2 className="size-4" /> Clear draft
             </Button>
-            <Button onClick={() => void saveNote()} disabled={!content.trim()}>
+            <Button onClick={saveNote} disabled={!content.trim()}>
               <Save className="size-4" /> Save note
             </Button>
           </div>
@@ -168,7 +177,7 @@ export default function NotepadPage() {
                 : saveState === "saving"
                   ? "Saving in the background..."
                   : saveState === "error"
-                    ? "Autosave paused. Keep typing and try again in a moment."
+                    ? (saveErrorMessage ?? AUTOSAVE_FAILED_MESSAGE)
                     : "Saved automatically while you type."}
             </p>
           </CardHeader>
@@ -230,7 +239,9 @@ export default function NotepadPage() {
 
                   <button
                     type="button"
-                    onClick={() => void removeQuickCapture(note.id)}
+                    onClick={() =>
+                      runAction(() => removeQuickCapture(note.id), "Could not delete this note.")
+                    }
                     aria-label={`Delete ${note.title ?? "note"}`}
                     className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--surface)] text-muted transition-all hover:bg-rose-500/80 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
                   >

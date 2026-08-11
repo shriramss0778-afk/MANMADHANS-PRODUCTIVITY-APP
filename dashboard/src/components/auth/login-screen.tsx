@@ -30,9 +30,18 @@ interface LoginScreenProps {
   loading: boolean;
   onPasswordLogin: (email: string, password: string) => Promise<void>;
   onGoogleLogin: (credential: string) => Promise<void>;
+  /** Reason the existing session could not be restored (server or network failure). */
+  sessionError?: string | null;
+  onRetrySession?: () => void;
 }
 
-export function LoginScreen({ loading, onPasswordLogin, onGoogleLogin }: LoginScreenProps) {
+export function LoginScreen({
+  loading,
+  onPasswordLogin,
+  onGoogleLogin,
+  sessionError,
+  onRetrySession,
+}: LoginScreenProps) {
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const googleButtonShellRef = useRef<HTMLDivElement | null>(null);
   const [googleLoaded, setGoogleLoaded] = useState(false);
@@ -94,6 +103,25 @@ export function LoginScreen({ loading, onPasswordLogin, onGoogleLogin }: LoginSc
           <h1 className="text-4xl font-semibold tracking-tight text-white">Welcome back</h1>
           <p className="mt-3 text-lg text-white/65">Sign in to your account</p>
         </div>
+
+        {sessionError && (
+          <div
+            role="alert"
+            className="mt-8 flex flex-col items-center gap-2 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 text-center text-sm text-rose-200"
+          >
+            <span>{sessionError}</span>
+            {onRetrySession && (
+              <button
+                type="button"
+                onClick={onRetrySession}
+                disabled={loading}
+                className="font-semibold text-white underline decoration-white/40 transition hover:decoration-white"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        )}
 
         <form className="mt-10 space-y-6" onSubmit={handlePasswordSubmit}>
           <div className="space-y-2.5">

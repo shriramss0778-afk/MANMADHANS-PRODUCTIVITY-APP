@@ -14,7 +14,7 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 export function HabitTracker() {
-  const { habits, toggleHabitDay } = useStore();
+  const { habits, toggleHabitDay, runAction } = useStore();
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -33,7 +33,9 @@ export function HabitTracker() {
           return (
             <div key={h.id} className="flex items-center gap-3">
               <button
-                onClick={() => void toggleHabitDay(h.id, today)}
+                onClick={() =>
+                  runAction(() => toggleHabitDay(h.id, today), "Could not update this habit.")
+                }
                 className={cn(
                   "grid size-10 shrink-0 place-items-center rounded-xl transition-all",
                   doneToday ? "text-white" : "text-muted hover:text-foreground",

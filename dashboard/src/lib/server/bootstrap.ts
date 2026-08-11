@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { ensureDefaultAdmin } from "./auth";
+import { ApiError } from "./errors";
 import {
   mapBook,
   mapCalendarEvent,
@@ -34,7 +35,7 @@ export async function getBootstrapState(userId?: string) {
   });
 
   if (!user) {
-    return null;
+    throw new ApiError(404, "USER_NOT_FOUND", "User account no longer exists");
   }
 
   const [knowledge, books, tasks, events, habits, weeklyTodos, notes, reflections, focusSessions] =

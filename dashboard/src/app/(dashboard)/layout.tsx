@@ -11,9 +11,10 @@ import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { AiAssistant } from "@/components/dashboard/ai-assistant";
 import { AppBackground } from "@/components/dashboard/app-background";
 import { PendingToast } from "@/components/dashboard/pending-toast";
+import { ErrorToast } from "@/components/dashboard/error-toast";
 
 function DashboardShell({ children }: { children: ReactNode }) {
-  const { user, loading, login, loginWithGoogle } = useStore();
+  const { user, loading, login, loginWithGoogle, sessionError, retryHydration } = useStore();
 
   if (!user) {
     return (
@@ -21,6 +22,8 @@ function DashboardShell({ children }: { children: ReactNode }) {
         loading={loading}
         onPasswordLogin={login}
         onGoogleLogin={loginWithGoogle}
+        sessionError={sessionError}
+        onRetrySession={retryHydration}
       />
     );
   }
@@ -42,6 +45,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
       <MobileNav />
       <AiAssistant />
       <PendingToast />
+      <ErrorToast />
     </div>
   );
 }

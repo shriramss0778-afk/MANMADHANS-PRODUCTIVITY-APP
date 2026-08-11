@@ -45,6 +45,7 @@ import {
   updateWeeklyTodo as persistWeeklyTodo,
 } from "@/lib/api/dashboard";
 import { setAccessToken } from "@/lib/api/client";
+import { getErrorMessage, isUnauthorizedError } from "@/lib/api/errors";
 import type {
   AnalyticsPayload,
   AppNote,
@@ -81,6 +82,15 @@ interface StoreValue {
   hydrated: boolean;
   loading: boolean;
   user: AuthenticatedUser | null;
+  /** Set when the session could not be restored for a reason other than being signed out. */
+  sessionError: string | null;
+  /** Message for the most recent failed background action, surfaced by <ErrorToast />. */
+  actionError: string | null;
+  dismissActionError: () => void;
+  reportError: (error: unknown, fallback: string) => void;
+  /** Runs a mutation the caller does not await, surfacing failures instead of dropping them. */
+  runAction: (action: () => Promise<unknown>, fallback: string) => void;
+  retryHydration: () => void;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -141,6 +151,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsPayload>(EMPTY_ANALYTICS);
   const [scratchpad, setScratchpad] = useState<AppNote | null>(null);
   const [quickCapture, setQuickCapture] = useState<AppNote[]>([]);
@@ -191,13 +203,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTimerSettings(DEFAULT_TIMER_SETTINGS);
   }, []);
 
+  const dismissActionError = useCallback(() => setActionError(null), []);
+
+  const reportError = useCallback((error: unknown, fallback: string) => {
+    console.error(fallback, error);
+    setActionError(getErrorMessage(error, fallback));
+  }, []);
+
+  const runAction = useCallback(
+    (action: () => Promise<unknown>, fallback: string) => {
+      action().catch((error) => reportError(error, fallback));
+    },
+    [reportError],
+  );
+
   const hydrate = useCallback(async () => {
     setLoading(true);
     try {
       const data = await bootstrapApp();
       applyBootstrapState(data);
-    } catch {
+      setSessionError(null);
+    } catch (error) {
       resetSessionState();
+      if (isUnauthorizedError(error)) {
+        setSessionError(null);
+        return;
+      }
+      console.error("Failed to restore session", error);
+      setSessionError(getErrorMessage(error, "Could not load your workspace. Please try again."));
     } finally {
       setLoading(false);
       setHydrated(true);
@@ -208,11 +241,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void hydrate();
   }, [hydrate]);
 
+  const retryHydration = useCallback(() => {
+    runAction(hydrate, "Could not load your workspace. Please try again.");
+  }, [hydrate, runAction]);
+
   const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     try {
       const data = await loginWithPassword(email, password);
       applyBootstrapState(data);
+      setSessionError(null);
       setHydrated(true);
     } finally {
       setLoading(false);
@@ -224,6 +262,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const data = await loginWithGoogle(credential);
       applyBootstrapState(data);
+      setSessionError(null);
       setHydrated(true);
     } finally {
       setLoading(false);
@@ -234,12 +273,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await logoutSession();
-      resetSessionState();
-      setHydrated(true);
+    } catch (error) {
+      reportError(error, "Signed out on this device, but the server could not be reached.");
     } finally {
+      resetSessionState();
+      setSessionError(null);
+      setHydrated(true);
       setLoading(false);
     }
-  }, [resetSessionState]);
+  }, [reportError, resetSessionState]);
 
   const updateProfileName = useCallback(async (name: string) => {
     const nextUser = await persistProfileName(name);
@@ -261,65 +303,75 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setAnalytics(next);
   }, []);
 
+  // Analytics are derived data: a refresh failure must not make a successful
+  // mutation look like it failed, but it is still reported to the user.
+  const syncAnalytics = useCallback(async () => {
+    try {
+      await refreshAnalytics();
+    } catch (error) {
+      reportError(error, "Your change was saved, but analytics could not be refreshed.");
+    }
+  }, [refreshAnalytics, reportError]);
+
   const addKnowledge = useCallback(async (entry: KnowledgeEntry) => {
     const saved = await createKnowledge(withoutId(entry));
     setKnowledge((prev) => [saved, ...prev]);
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const updateKnowledge = useCallback(async (entry: KnowledgeEntry) => {
     const saved = await persistKnowledge(entry.id, withoutId(entry));
     setKnowledge((prev) => prev.map((item) => (item.id === entry.id ? saved : item)));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const removeKnowledge = useCallback(async (id: string) => {
     await deleteKnowledge(id);
     setKnowledge((prev) => prev.filter((item) => item.id !== id));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const addBook = useCallback(async (book: Book) => {
     const saved = await createBook(withoutId(book));
     setBooks((prev) => [saved, ...prev]);
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const updateBook = useCallback(async (book: Book) => {
     const saved = await persistBook(book.id, withoutId(book));
     setBooks((prev) => prev.map((item) => (item.id === book.id ? saved : item)));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const removeBook = useCallback(async (id: string) => {
     await deleteBook(id);
     setBooks((prev) => prev.filter((item) => item.id !== id));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const addTask = useCallback(async (task: Task) => {
     const saved = await createTask(withoutId(task));
     setTasks((prev) => [saved, ...prev]);
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const updateTask = useCallback(async (task: Task) => {
     const saved = await persistTask(task.id, withoutId(task));
     setTasks((prev) => prev.map((item) => (item.id === task.id ? saved : item)));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const removeTask = useCallback(async (id: string) => {
     await deleteTask(id);
     setTasks((prev) => prev.filter((item) => item.id !== id));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const setTaskStatus = useCallback(async (id: string, status: TaskStatus) => {
     const saved = await persistTask(id, { status });
     setTasks((prev) => prev.map((item) => (item.id === id ? saved : item)));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const toggleSubtask = useCallback(async (taskId: string, subtaskId: string) => {
     const current = tasks.find((task) => task.id === taskId);
@@ -330,8 +382,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ),
     });
     setTasks((prev) => prev.map((item) => (item.id === taskId ? saved : item)));
-    await refreshAnalytics();
-  }, [tasks, refreshAnalytics]);
+    await syncAnalytics();
+  }, [tasks, syncAnalytics]);
 
   const addEvent = useCallback(async (event: CalendarEvent) => {
     const saved = await createEvent(withoutId(event));
@@ -351,20 +403,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addHabit = useCallback(async (habit: Habit) => {
     const saved = await createHabit(withoutId(habit));
     setHabits((prev) => [...prev, saved]);
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const updateHabit = useCallback(async (habit: Habit) => {
     const saved = await persistHabit(habit.id, withoutId(habit));
     setHabits((prev) => prev.map((item) => (item.id === habit.id ? saved : item)));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const removeHabit = useCallback(async (id: string) => {
     await deleteHabit(id);
     setHabits((prev) => prev.filter((item) => item.id !== id));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const toggleHabitDay = useCallback(async (habitId: string, date: string) => {
     const current = habits.find((habit) => habit.id === habitId);
@@ -373,8 +425,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     nextLog[date] = !nextLog[date];
     const saved = await persistHabit(habitId, { log: nextLog });
     setHabits((prev) => prev.map((item) => (item.id === habitId ? saved : item)));
-    await refreshAnalytics();
-  }, [habits, refreshAnalytics]);
+    await syncAnalytics();
+  }, [habits, syncAnalytics]);
 
   const addWeeklyTodo = useCallback(async (todo: WeeklyTodo) => {
     const saved = await createWeeklyTodo(withoutId(todo));
@@ -435,19 +487,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return [saved, ...prev].slice(0, 20);
     });
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const recordFocusSession = useCallback(async (mode: FocusSession["mode"], durationMins: number) => {
     const saved = await createFocusSession({ mode, durationMins });
     setFocusSessions((prev) => [saved, ...prev].slice(0, 200));
-    await refreshAnalytics();
-  }, [refreshAnalytics]);
+    await syncAnalytics();
+  }, [syncAnalytics]);
 
   const value = useMemo<StoreValue>(() => ({
     hydrated,
     loading,
     user,
+    sessionError,
+    actionError,
+    dismissActionError,
+    reportError,
+    runAction,
+    retryHydration,
     login,
     loginWithGoogle: handleGoogleLogin,
     logout,
@@ -499,6 +557,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     hydrated,
     loading,
     user,
+    sessionError,
+    actionError,
+    dismissActionError,
+    reportError,
+    runAction,
+    retryHydration,
     login,
     handleGoogleLogin,
     logout,

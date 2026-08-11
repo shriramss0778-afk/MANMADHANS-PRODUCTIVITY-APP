@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { ApiError } from "./errors";
@@ -38,6 +39,39 @@ export function optionsResponse() {
   });
 }
 
+const PRISMA_ERROR_MAP: Record<string, { status: number; code: string; message: string }> = {
+  P2002: { status: 409, code: "CONFLICT", message: "A record with these values already exists" },
+  P2003: { status: 400, code: "INVALID_REFERENCE", message: "Related record does not exist" },
+  P2025: { status: 404, code: "NOT_FOUND", message: "Record not found" },
+};
+
+function toApiError(error: unknown): ApiError {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const mapped = PRISMA_ERROR_MAP[error.code];
+    if (mapped) {
+      return new ApiError(mapped.status, mapped.code, mapped.message);
+    }
+    return new ApiError(500, "DATABASE_ERROR", "Database request failed");
+  }
+
+  if (
+    error instanceof Prisma.PrismaClientInitializationError ||
+    error instanceof Prisma.PrismaClientRustPanicError
+  ) {
+    return new ApiError(503, "DATABASE_UNAVAILABLE", "The database is currently unavailable");
+  }
+
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    return new ApiError(500, "DATABASE_ERROR", "Database request failed");
+  }
+
+  return new ApiError(500, "INTERNAL_SERVER_ERROR", "Something went wrong");
+}
+
 export function handleRouteError(error: unknown) {
   if (error instanceof ZodError) {
     return json(
@@ -52,30 +86,34 @@ export function handleRouteError(error: unknown) {
     );
   }
 
-  if (error instanceof ApiError) {
+  const apiError = toApiError(error);
+
+  if (apiError.status >= 500) {
+    logger.error("Unhandled route error", {
+      code: apiError.code,
+      status: apiError.status,
+      error: error instanceof Error ? error : String(error),
+    });
+
     return json(
       {
         error: {
-          code: error.code,
-          message: error.message,
-          details: error.details,
+          code: apiError.code,
+          message: apiError.message,
         },
       },
-      { status: error.status },
+      { status: apiError.status },
     );
   }
-
-  logger.error("Unhandled route error", {
-    error: error instanceof Error ? error.message : String(error),
-  });
 
   return json(
     {
       error: {
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Something went wrong",
+        code: apiError.code,
+        message: apiError.message,
+        details: apiError.details,
       },
     },
-    { status: 500 },
+    { status: apiError.status },
   );
 }

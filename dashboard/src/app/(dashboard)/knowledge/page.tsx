@@ -25,7 +25,7 @@ const CATEGORIES: (Category | "All")[] = [
 ];
 
 export default function KnowledgePage() {
-  const { knowledge: entries, addKnowledge, updateKnowledge, removeKnowledge } = useStore();
+  const { knowledge: entries, addKnowledge, updateKnowledge, removeKnowledge, runAction } = useStore();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<Category | "All">("All");
   const [editing, setEditing] = useState<KnowledgeEntry | null>(null);
@@ -60,7 +60,11 @@ export default function KnowledgePage() {
       <PageHeader
         title="Knowledge Base"
         subtitle="Everything you've learned, searchable and revisable"
-        action={<KnowledgeDialog onSave={addKnowledge} />}
+        action={
+          <KnowledgeDialog
+            onSave={(entry) => runAction(() => addKnowledge(entry), "Could not save this entry.")}
+          />
+        }
       />
 
       {/* Quick stats */}
@@ -132,7 +136,7 @@ export default function KnowledgePage() {
                   key={entry.id}
                   entry={entry}
                   index={i}
-                  onDelete={removeKnowledge}
+                  onDelete={(id) => runAction(() => removeKnowledge(id), "Could not delete this entry.")}
                   onEdit={setEditing}
                 />
               ))}
@@ -186,7 +190,7 @@ export default function KnowledgePage() {
           open={!!editing}
           onOpenChange={(o) => !o && setEditing(null)}
           onSave={(e) => {
-            updateKnowledge(e);
+            runAction(() => updateKnowledge(e), "Could not update this entry.");
             setEditing(null);
           }}
         />

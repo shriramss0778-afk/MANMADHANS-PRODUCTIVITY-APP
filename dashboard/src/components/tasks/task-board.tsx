@@ -16,7 +16,7 @@ const COLUMNS: { id: TaskStatus; label: string; accent: string }[] = [
 ];
 
 export function TaskBoard() {
-  const { tasks, setTaskStatus, toggleSubtask, removeTask, updateTask } = useStore();
+  const { tasks, setTaskStatus, toggleSubtask, removeTask, updateTask, runAction } = useStore();
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<TaskStatus | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
@@ -28,7 +28,7 @@ export function TaskBoard() {
 
   const onDrop = (status: TaskStatus) => {
     if (!dragId) return;
-    setTaskStatus(dragId, status);
+    runAction(() => setTaskStatus(dragId, status), "Could not move this task.");
     setDragId(null);
     setOverCol(null);
   };
@@ -67,8 +67,13 @@ export function TaskBoard() {
                       key={t.id}
                       task={t}
                       onDragStart={onDragStart}
-                      onToggleSubtask={toggleSubtask}
-                      onDelete={removeTask}
+                      onToggleSubtask={(taskId, subtaskId) =>
+                        runAction(
+                          () => toggleSubtask(taskId, subtaskId),
+                          "Could not update this subtask.",
+                        )
+                      }
+                      onDelete={(id) => runAction(() => removeTask(id), "Could not delete this task.")}
                       onEdit={setEditing}
                     />
                   ))}
@@ -95,7 +100,7 @@ export function TaskBoard() {
           open={!!editing}
           onOpenChange={(o) => !o && setEditing(null)}
           onSave={(t) => {
-            updateTask(t);
+            runAction(() => updateTask(t), "Could not update this task.");
             setEditing(null);
           }}
         />
