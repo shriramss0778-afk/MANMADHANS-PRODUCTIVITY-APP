@@ -20,8 +20,15 @@ import {
   type TimerSettings,
   type WeeklyTodo,
 } from "@prisma/client";
+import { dateKey, relativeDateKey } from "@/lib/dates";
+import { DEFAULT_TIMER_SETTINGS } from "@/lib/defaults";
 
-const dateOnly = (value: Date | null | undefined) => (value ? value.toISOString().slice(0, 10) : undefined);
+const dateOnly = (value: Date | null | undefined) => (value ? dateKey(value) : undefined);
+
+/** Collapse habit logs into the `{ "YYYY-MM-DD": done }` shape used by the client. */
+export function toHabitLogMap(logs: HabitLog[]): Record<string, boolean> {
+  return Object.fromEntries(logs.map((log) => [dateKey(log.date), log.done]));
+}
 
 export const fromRevisionStatus = (value: string) =>
   ({
@@ -209,21 +216,11 @@ export function mapCalendarEvent(event: CalendarEvent) {
 }
 
 function buildHabitHistory(logs: HabitLog[]) {
-  const dates = new Set(
-    logs.filter((log) => log.done).map((log) => log.date.toISOString().slice(0, 10)),
-  );
-  return Array.from({ length: 49 }, (_, index) => {
-    const date = new Date();
-    date.setUTCDate(date.getUTCDate() - (48 - index));
-    return dates.has(date.toISOString().slice(0, 10));
-  });
+  const dates = new Set(logs.filter((log) => log.done).map((log) => dateKey(log.date)));
+  return Array.from({ length: 49 }, (_, index) => dates.has(relativeDateKey(index - 48)));
 }
 
 export function mapHabit(habit: Habit & { logs: HabitLog[] }) {
-  const log = Object.fromEntries(
-    habit.logs.map((item) => [item.date.toISOString().slice(0, 10), item.done]),
-  );
-
   return {
     id: habit.id,
     name: habit.name,
@@ -232,7 +229,7 @@ export function mapHabit(habit: Habit & { logs: HabitLog[] }) {
     streak: habit.streak,
     goalPerWeek: habit.goalPerWeek,
     history: buildHabitHistory(habit.logs),
-    log,
+    log: toHabitLogMap(habit.logs),
   };
 }
 
@@ -268,9 +265,9 @@ export function mapReflection(reflection: Reflection) {
 
 export function mapTimerSettings(settings: TimerSettings | null | undefined) {
   return {
-    focus: settings?.focus ?? 25,
-    short: settings?.short ?? 5,
-    long: settings?.long ?? 15,
+    focus: settings?.focus ?? DEFAULT_TIMER_SETTINGS.focus,
+    short: settings?.short ?? DEFAULT_TIMER_SETTINGS.short,
+    long: settings?.long ?? DEFAULT_TIMER_SETTINGS.long,
   };
 }
 
@@ -283,7 +280,8 @@ export function mapFocusSession(session: FocusSession) {
   };
 }
 
-export function mapManagedUser(user: {
+/** Shape of the user columns exposed by the super-admin user management routes. */
+export type ManagedUserRecord = {
   id: string;
   email: string;
   name: string;
@@ -292,7 +290,27 @@ export function mapManagedUser(user: {
   googleLoginEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export function mapProfile(user: {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  passwordChangeRequired: boolean;
+  readingGoal: number;
 }) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    passwordChangeRequired: user.passwordChangeRequired,
+    readingGoal: user.readingGoal,
+  };
+}
+
+export function mapManagedUser(user: ManagedUserRecord) {
   return {
     id: user.id,
     email: user.email,

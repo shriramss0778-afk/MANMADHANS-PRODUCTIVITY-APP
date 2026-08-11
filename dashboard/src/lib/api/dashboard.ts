@@ -39,20 +39,31 @@ function unwrap<T>(response: { data: { data: T } }) {
   return response.data.data;
 }
 
-export async function bootstrapApp() {
-  const response = await api.get<BootstrapPayload>("/bootstrap");
+/** Store the access token returned by a bootstrap/login response, then return the payload. */
+function captureSession(response: { data: BootstrapPayload }) {
   if (response.data.accessToken) {
     setAccessToken(response.data.accessToken);
   }
   return response.data;
 }
 
+/** Create/update/delete calls for a REST collection that returns `{ data }` envelopes. */
+function resource<T extends { id: string }, C = Omit<T, "id">>(path: string) {
+  return {
+    create: async (item: C) => unwrap<T>(await api.post(path, item)),
+    update: async (id: string, item: Partial<C>) => unwrap<T>(await api.patch(`${path}/${id}`, item)),
+    remove: async (id: string) => {
+      await api.delete(`${path}/${id}`);
+    },
+  };
+}
+
+export async function bootstrapApp() {
+  return captureSession(await api.get<BootstrapPayload>("/bootstrap"));
+}
+
 export async function loginWithPassword(email: string, password: string) {
-  const response = await api.post<BootstrapPayload>("/auth/login", { email, password });
-  if (response.data.accessToken) {
-    setAccessToken(response.data.accessToken);
-  }
-  return response.data;
+  return captureSession(await api.post<BootstrapPayload>("/auth/login", { email, password }));
 }
 
 export async function logoutSession() {
@@ -61,11 +72,7 @@ export async function logoutSession() {
 }
 
 export async function loginWithGoogle(credential: string) {
-  const response = await api.post<BootstrapPayload>("/auth/google", { credential });
-  if (response.data.accessToken) {
-    setAccessToken(response.data.accessToken);
-  }
-  return response.data;
+  return captureSession(await api.post<BootstrapPayload>("/auth/google", { credential }));
 }
 
 export async function updateProfileName(name: string) {
@@ -87,27 +94,22 @@ export async function changePassword(oldPassword: string, newPassword: string, c
   return unwrap<AuthenticatedUser>(response);
 }
 
+const managedUsers = resource<ManagedUser, Omit<ManagedUser, "id" | "createdAt" | "updatedAt">>("/users");
+const knowledge = resource<KnowledgeEntry>("/knowledge");
+const books = resource<Book>("/books");
+const tasks = resource<Task>("/tasks");
+const events = resource<CalendarEvent>("/calendar-events");
+const habits = resource<Habit>("/habits");
+const weeklyTodos = resource<WeeklyTodo>("/weekly-todos");
+
 export async function fetchManagedUsers() {
   const response = await api.get("/users");
   return unwrap<ManagedUser[]>(response);
 }
 
-export async function createManagedUser(user: Omit<ManagedUser, "id" | "createdAt" | "updatedAt">) {
-  const response = await api.post("/users", user);
-  return unwrap<ManagedUser>(response);
-}
-
-export async function updateManagedUser(
-  id: string,
-  user: Partial<Omit<ManagedUser, "id" | "createdAt" | "updatedAt">>,
-) {
-  const response = await api.patch(`/users/${id}`, user);
-  return unwrap<ManagedUser>(response);
-}
-
-export async function deleteManagedUser(id: string) {
-  await api.delete(`/users/${id}`);
-}
+export const createManagedUser = managedUsers.create;
+export const updateManagedUser = managedUsers.update;
+export const deleteManagedUser = managedUsers.remove;
 
 export async function fetchAppSettings() {
   const response = await api.get("/app-settings");
@@ -119,89 +121,29 @@ export async function updateAppSettings(settings: AppSettings) {
   return unwrap<AppSettings>(response);
 }
 
-export async function createKnowledge(entry: Omit<KnowledgeEntry, "id">) {
-  const response = await api.post("/knowledge", entry);
-  return unwrap<KnowledgeEntry>(response);
-}
+export const createKnowledge = knowledge.create;
+export const updateKnowledge = knowledge.update;
+export const deleteKnowledge = knowledge.remove;
 
-export async function updateKnowledge(id: string, entry: Partial<Omit<KnowledgeEntry, "id">>) {
-  const response = await api.patch(`/knowledge/${id}`, entry);
-  return unwrap<KnowledgeEntry>(response);
-}
+export const createBook = books.create;
+export const updateBook = books.update;
+export const deleteBook = books.remove;
 
-export async function deleteKnowledge(id: string) {
-  await api.delete(`/knowledge/${id}`);
-}
+export const createTask = tasks.create;
+export const updateTask = tasks.update;
+export const deleteTask = tasks.remove;
 
-export async function createBook(book: Omit<Book, "id">) {
-  const response = await api.post("/books", book);
-  return unwrap<Book>(response);
-}
+export const createEvent = events.create;
+export const updateEvent = events.update;
+export const deleteEvent = events.remove;
 
-export async function updateBook(id: string, book: Partial<Omit<Book, "id">>) {
-  const response = await api.patch(`/books/${id}`, book);
-  return unwrap<Book>(response);
-}
+export const createHabit = habits.create;
+export const updateHabit = habits.update;
+export const deleteHabit = habits.remove;
 
-export async function deleteBook(id: string) {
-  await api.delete(`/books/${id}`);
-}
-
-export async function createTask(task: Omit<Task, "id">) {
-  const response = await api.post("/tasks", task);
-  return unwrap<Task>(response);
-}
-
-export async function updateTask(id: string, task: Partial<Omit<Task, "id">>) {
-  const response = await api.patch(`/tasks/${id}`, task);
-  return unwrap<Task>(response);
-}
-
-export async function deleteTask(id: string) {
-  await api.delete(`/tasks/${id}`);
-}
-
-export async function createEvent(event: Omit<CalendarEvent, "id">) {
-  const response = await api.post("/calendar-events", event);
-  return unwrap<CalendarEvent>(response);
-}
-
-export async function updateEvent(id: string, event: Partial<Omit<CalendarEvent, "id">>) {
-  const response = await api.patch(`/calendar-events/${id}`, event);
-  return unwrap<CalendarEvent>(response);
-}
-
-export async function deleteEvent(id: string) {
-  await api.delete(`/calendar-events/${id}`);
-}
-
-export async function createHabit(habit: Omit<Habit, "id">) {
-  const response = await api.post("/habits", habit);
-  return unwrap<Habit>(response);
-}
-
-export async function updateHabit(id: string, habit: Partial<Omit<Habit, "id">>) {
-  const response = await api.patch(`/habits/${id}`, habit);
-  return unwrap<Habit>(response);
-}
-
-export async function deleteHabit(id: string) {
-  await api.delete(`/habits/${id}`);
-}
-
-export async function createWeeklyTodo(todo: Omit<WeeklyTodo, "id">) {
-  const response = await api.post("/weekly-todos", todo);
-  return unwrap<WeeklyTodo>(response);
-}
-
-export async function updateWeeklyTodo(id: string, todo: Partial<Omit<WeeklyTodo, "id">>) {
-  const response = await api.patch(`/weekly-todos/${id}`, todo);
-  return unwrap<WeeklyTodo>(response);
-}
-
-export async function deleteWeeklyTodo(id: string) {
-  await api.delete(`/weekly-todos/${id}`);
-}
+export const createWeeklyTodo = weeklyTodos.create;
+export const updateWeeklyTodo = weeklyTodos.update;
+export const deleteWeeklyTodo = weeklyTodos.remove;
 
 export async function saveScratchpad(content: string, title?: string) {
   const response = await api.put("/notes/scratchpad", { content, title });

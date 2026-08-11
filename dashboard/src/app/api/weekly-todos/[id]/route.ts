@@ -1,50 +1,32 @@
 import { prisma } from "@/lib/server/prisma";
-import { requireAuth } from "@/lib/server/auth";
-import { ApiError } from "@/lib/server/errors";
-import { json, handleRouteError, noContent, optionsResponse } from "@/lib/server/api";
+import { authedRoute, corsPreflight, json, noContent } from "@/lib/server/api";
 import { weeklyTodoSchema } from "@/lib/server/schemas";
 import { mapWeeklyTodo } from "@/lib/server/mappers";
+import { toDate } from "@/lib/server/patch";
+import { findOwnedOrThrow } from "@/lib/server/query";
 
-async function findTodo(userId: string, id: string) {
-  const item = await prisma.weeklyTodo.findFirst({ where: { id, userId } });
-  if (!item) {
-    throw new ApiError(404, "NOT_FOUND", "Weekly todo not found");
-  }
-  return item;
+function findTodo(userId: string, id: string) {
+  return findOwnedOrThrow(prisma.weeklyTodo.findFirst({ where: { id, userId } }), "Weekly todo");
 }
 
-export async function OPTIONS() {
-  return optionsResponse();
-}
+export { corsPreflight as OPTIONS };
 
-export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  try {
-    const user = await requireAuth();
-    const { id } = await context.params;
-    await findTodo(user.id, id);
-    const body = weeklyTodoSchema.partial().parse(await request.json());
-    const item = await prisma.weeklyTodo.update({
-      where: { id },
-      data: {
-        ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.date !== undefined ? { date: new Date(body.date) } : {}),
-        ...(body.done !== undefined ? { done: body.done } : {}),
-      },
-    });
-    return json({ data: mapWeeklyTodo(item) });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+export const PATCH = authedRoute<{ id: string }>(async ({ request, user, params }) => {
+  const todo = await findTodo(user.id, params.id);
+  const body = weeklyTodoSchema.partial().parse(await request.json());
+  const item = await prisma.weeklyTodo.update({
+    where: { id: todo.id },
+    data: {
+      title: body.title,
+      date: toDate(body.date),
+      done: body.done,
+    },
+  });
+  return json({ data: mapWeeklyTodo(item) });
+});
 
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
-  try {
-    const user = await requireAuth();
-    const { id } = await context.params;
-    await findTodo(user.id, id);
-    await prisma.weeklyTodo.delete({ where: { id } });
-    return noContent();
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+export const DELETE = authedRoute<{ id: string }>(async ({ user, params }) => {
+  const todo = await findTodo(user.id, params.id);
+  await prisma.weeklyTodo.delete({ where: { id: todo.id } });
+  return noContent();
+});

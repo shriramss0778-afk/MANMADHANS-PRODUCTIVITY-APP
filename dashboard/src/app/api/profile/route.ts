@@ -1,55 +1,22 @@
 import { prisma } from "@/lib/server/prisma";
-import { requireAuth } from "@/lib/server/auth";
-import { handleRouteError, json, optionsResponse } from "@/lib/server/api";
+import { authedRoute, corsPreflight, json } from "@/lib/server/api";
+import { mapProfile } from "@/lib/server/mappers";
 import { profileSchema } from "@/lib/server/schemas";
 
-export async function OPTIONS() {
-  return optionsResponse();
-}
+export { corsPreflight as OPTIONS };
 
-export async function GET() {
-  try {
-    const user = await requireAuth();
+export const GET = authedRoute(async ({ user }) => json({ data: mapProfile(user) }));
 
-    return json({
-      data: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        passwordChangeRequired: user.passwordChangeRequired,
-        readingGoal: user.readingGoal,
-      },
-    });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+export const PATCH = authedRoute(async ({ request, user: currentUser }) => {
+  const body = profileSchema.parse(await request.json());
 
-export async function PATCH(request: Request) {
-  try {
-    const currentUser = await requireAuth();
-    const body = profileSchema.parse(await request.json());
+  const user = await prisma.user.update({
+    where: { id: currentUser.id },
+    data: {
+      name: body.name,
+      readingGoal: body.readingGoal,
+    },
+  });
 
-    const user = await prisma.user.update({
-      where: { id: currentUser.id },
-      data: {
-        ...(body.name !== undefined ? { name: body.name } : {}),
-        ...(body.readingGoal !== undefined ? { readingGoal: body.readingGoal } : {}),
-      },
-    });
-
-    return json({
-      data: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        passwordChangeRequired: user.passwordChangeRequired,
-        readingGoal: user.readingGoal,
-      },
-    });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+  return json({ data: mapProfile(user) });
+});
