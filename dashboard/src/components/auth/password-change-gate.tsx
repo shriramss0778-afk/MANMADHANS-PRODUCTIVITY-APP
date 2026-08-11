@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 
 export function PasswordChangeGate() {
   const { user, loading, changePassword, logout } = useStore();
-  const [oldPassword, setOldPassword] = useState("Welcome@123");
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");

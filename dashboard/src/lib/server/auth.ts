@@ -1,6 +1,6 @@
 import { Role, type User } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { randomUUID, createHash } from "crypto";
+import { randomUUID, createHash, randomInt } from "crypto";
 import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 import { cookies, headers } from "next/headers";
 import { ApiError } from "./errors";
@@ -169,6 +169,14 @@ export async function requireAuth() {
       throw new ApiError(401, "UNAUTHORIZED", "User no longer exists");
     }
 
+    if (!user.isActive) {
+      throw new ApiError(401, "UNAUTHORIZED", "This account has been deactivated");
+    }
+
+    if (user.role !== payload.role) {
+      throw new ApiError(401, "UNAUTHORIZED", "Session role is stale, please sign in again");
+    }
+
     return user;
   } catch {
     throw new ApiError(401, "UNAUTHORIZED", "Invalid or expired access token");
@@ -212,6 +220,10 @@ export async function rotateRefreshToken() {
     throw new ApiError(401, "UNAUTHORIZED", "User no longer exists");
   }
 
+  if (!user.isActive) {
+    throw new ApiError(401, "UNAUTHORIZED", "This account has been deactivated");
+  }
+
   await revokeRefreshToken(refreshToken);
   return persistSession(user);
 }
@@ -221,34 +233,25 @@ export async function ensureDefaultAdmin() {
     where: { email: env.DEFAULT_ADMIN_EMAIL.toLowerCase() },
   });
 
-  const passwordHash = await hashPassword(env.DEFAULT_ADMIN_PASSWORD);
-
   if (existing) {
     return prisma.user.update({
       where: { id: existing.id },
       data: {
-        name: env.DEFAULT_ADMIN_NAME,
-        passwordHash,
-        role: "SUPER_ADMIN" as never,
-        isActive: true as never,
-        googleLoginEnabled: true as never,
-        passwordChangeRequired: false as never,
-        readingGoal: existing.readingGoal ?? 24,
-        timerSettings: existing.id
-          ? {
-              upsert: {
-                create: {
-                  focus: 25,
-                  short: 5,
-                  long: 15,
-                },
-                update: {},
-              },
-            }
-          : undefined,
+        timerSettings: {
+          upsert: {
+            create: {
+              focus: 25,
+              short: 5,
+              long: 15,
+            },
+            update: {},
+          },
+        },
       },
     });
   }
+
+  const passwordHash = await hashPassword(env.DEFAULT_ADMIN_PASSWORD);
 
   return prisma.user.create({
     data: {
@@ -288,6 +291,15 @@ export async function verifyGoogleCredential(credential: string) {
     email_verified?: boolean;
     name?: string;
   };
+}
+
+export function generateTemporaryPassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let password = "";
+  for (let index = 0; index < 20; index += 1) {
+    password += alphabet[randomInt(alphabet.length)];
+  }
+  return `${password}!7`;
 }
 
 export function generateOpaqueId(prefix: string) {

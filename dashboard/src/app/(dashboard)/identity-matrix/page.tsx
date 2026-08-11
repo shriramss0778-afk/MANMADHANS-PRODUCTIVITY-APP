@@ -32,9 +32,11 @@ import type { AppSettings, ManagedUser } from "@/lib/types";
 type RoleValue = ManagedUser["role"];
 
 const ROLES: RoleValue[] = ["SUPER_ADMIN", "ADMIN", "USER"];
-const DEFAULT_PASSWORD = "Welcome@123";
 
-function buildInviteMessage(user: { name: string; email: string }, portalUrl: string) {
+function buildInviteMessage(
+  user: { name: string; email: string; temporaryPassword: string },
+  portalUrl: string,
+) {
   return [
     "Manmadhan's Productivity Access Invitation",
     "",
@@ -42,7 +44,7 @@ function buildInviteMessage(user: { name: string; email: string }, portalUrl: st
     "",
     `Name: ${user.name.toUpperCase()}`,
     `Email: ${user.email}`,
-    `Password: ${DEFAULT_PASSWORD}`,
+    `Password: ${user.temporaryPassword}`,
     "",
     "Please reset your password after your first login.",
     "Please do not share your login credentials.",
@@ -60,6 +62,11 @@ export default function IdentityMatrixPage() {
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [inviteMessage, setInviteMessage] = useState("");
+  const [invitedUser, setInvitedUser] = useState<{
+    name: string;
+    email: string;
+    temporaryPassword: string;
+  } | null>(null);
   const [settings, setSettings] = useState<AppSettings>({
     accessPortalUrl: "",
   });
@@ -103,7 +110,7 @@ export default function IdentityMatrixPage() {
     setSaving(true);
     setError("");
     try {
-      const created = await createManagedUser({
+      const { user: created, temporaryPassword } = await createManagedUser({
         name: form.name.trim(),
         email: form.email.trim(),
         role: form.role,
@@ -111,12 +118,9 @@ export default function IdentityMatrixPage() {
         googleLoginEnabled: true,
       });
       setUsers((prev) => [created, ...prev]);
-      setInviteMessage(
-        buildInviteMessage(
-          { name: created.name, email: created.email },
-          settings.accessPortalUrl,
-        ),
-      );
+      const invited = { name: created.name, email: created.email, temporaryPassword };
+      setInvitedUser(invited);
+      setInviteMessage(buildInviteMessage(invited, settings.accessPortalUrl));
       setForm({
         name: "",
         email: "",
@@ -140,11 +144,8 @@ export default function IdentityMatrixPage() {
         accessPortalUrl: settings.accessPortalUrl.trim(),
       });
       setSettings(saved);
-      if (inviteMessage) {
-        const latestUser = users[0];
-        if (latestUser) {
-          setInviteMessage(buildInviteMessage(latestUser, saved.accessPortalUrl));
-        }
+      if (inviteMessage && invitedUser) {
+        setInviteMessage(buildInviteMessage(invitedUser, saved.accessPortalUrl));
       }
     } catch {
       setError("Unable to save the access portal URL.");

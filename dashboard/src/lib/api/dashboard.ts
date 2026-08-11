@@ -93,8 +93,8 @@ export async function fetchManagedUsers() {
 }
 
 export async function createManagedUser(user: Omit<ManagedUser, "id" | "createdAt" | "updatedAt">) {
-  const response = await api.post("/users", user);
-  return unwrap<ManagedUser>(response);
+  const response = await api.post<{ data: ManagedUser; temporaryPassword: string }>("/users", user);
+  return { user: response.data.data, temporaryPassword: response.data.temporaryPassword };
 }
 
 export async function updateManagedUser(
