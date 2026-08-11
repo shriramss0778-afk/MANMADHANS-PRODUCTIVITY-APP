@@ -3,6 +3,10 @@ import { ApiError } from "@/lib/server/errors";
 import { getBootstrapState } from "@/lib/server/bootstrap";
 import { handleRouteError, json, optionsResponse } from "@/lib/server/api";
 import { ensureDefaultAdmin, persistSession, verifyGoogleCredential } from "@/lib/server/auth";
+import { clientIdentifier, consumeRateLimit } from "@/lib/server/rate-limit";
+
+const GOOGLE_ATTEMPT_LIMIT = 20;
+const GOOGLE_WINDOW_MS = 10 * 60 * 1000;
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -10,6 +14,7 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
   try {
+    consumeRateLimit(`google:${await clientIdentifier()}`, GOOGLE_ATTEMPT_LIMIT, GOOGLE_WINDOW_MS);
     await ensureDefaultAdmin();
     const body = (await request.json()) as { credential?: string };
     if (!body.credential) {

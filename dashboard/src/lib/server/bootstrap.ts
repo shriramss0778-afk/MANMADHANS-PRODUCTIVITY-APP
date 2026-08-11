@@ -1,5 +1,4 @@
 import { prisma } from "./prisma";
-import { ensureDefaultAdmin } from "./auth";
 import {
   mapBook,
   mapCalendarEvent,
@@ -21,15 +20,9 @@ import {
   buildWeeklyLearningHours,
 } from "./analytics";
 
-export async function getBootstrapState(userId?: string) {
-  const resolvedUserId =
-    userId ??
-    (
-      await ensureDefaultAdmin()
-    ).id;
-
+export async function getBootstrapState(userId: string) {
   const user = await prisma.user.findUnique({
-    where: { id: resolvedUserId },
+    where: { id: userId },
     include: { timerSettings: true },
   });
 

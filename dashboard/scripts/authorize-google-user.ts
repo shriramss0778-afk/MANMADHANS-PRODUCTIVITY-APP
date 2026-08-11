@@ -1,11 +1,13 @@
 import { PrismaClient } from "@prisma/client";
-import { hashPassword } from "../src/lib/server/auth";
+import { generateTemporaryPassword, hashPassword } from "../src/lib/server/auth";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = "shriramss0778@gmail.com";
-  const passwordHash = await hashPassword("Welcome@123");
+  const email = process.argv[2]?.trim().toLowerCase();
+  if (!email) {
+    throw new Error("Usage: tsx scripts/authorize-google-user.ts <email>");
+  }
 
   const existing = await prisma.user.findUnique({
     where: { email },
@@ -15,11 +17,9 @@ async function main() {
     await prisma.user.update({
       where: { email },
       data: {
-        name: "Super Admin",
         role: "SUPER_ADMIN" as never,
         isActive: true as never,
         googleLoginEnabled: true as never,
-        passwordHash,
         timerSettings: {
           upsert: {
             create: {
@@ -36,6 +36,7 @@ async function main() {
     return;
   }
 
+  const temporaryPassword = generateTemporaryPassword();
   await prisma.user.create({
     data: {
       email,
@@ -43,7 +44,8 @@ async function main() {
       role: "SUPER_ADMIN" as never,
       isActive: true as never,
       googleLoginEnabled: true as never,
-      passwordHash,
+      passwordChangeRequired: true as never,
+      passwordHash: await hashPassword(temporaryPassword),
       timerSettings: {
         create: {
           focus: 25,
@@ -55,6 +57,7 @@ async function main() {
   });
 
   console.log(`Created and authorized user: ${email}`);
+  console.log(`Temporary password (shown once): ${temporaryPassword}`);
 }
 
 main()
