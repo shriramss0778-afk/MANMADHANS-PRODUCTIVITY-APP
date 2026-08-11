@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
 
 export default function FocusPage() {
-  const { quickCapture, addQuickCapture, removeQuickCapture } = useStore();
+  const { quickCapture, addQuickCapture, removeQuickCapture, runAction } = useStore();
   const [draft, setDraft] = useState("");
   const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -31,10 +31,13 @@ export default function FocusPage() {
     });
   };
 
-  const addNote = async () => {
-    if (!draft.trim()) return;
-    await addQuickCapture(draft.trim());
-    setDraft("");
+  const addNote = () => {
+    const note = draft.trim();
+    if (!note) return;
+    runAction(async () => {
+      await addQuickCapture(note);
+      setDraft("");
+    }, "Could not save this note.");
   };
 
   return (
@@ -80,11 +83,11 @@ export default function FocusPage() {
               <Input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && void addNote()}
+                onKeyDown={(e) => e.key === "Enter" && addNote()}
                 placeholder="Capture a thought..."
                 className="min-w-0 flex-1"
               />
-              <Button size="icon" onClick={() => void addNote()} aria-label="Add note" className="shrink-0">
+              <Button size="icon" onClick={addNote} aria-label="Add note" className="shrink-0">
                 <Plus className="size-4" />
               </Button>
             </div>
@@ -101,7 +104,9 @@ export default function FocusPage() {
                   >
                     <span className="min-w-0 flex-1 break-words text-sm">{note.content}</span>
                     <button
-                      onClick={() => void removeQuickCapture(note.id)}
+                      onClick={() =>
+                        runAction(() => removeQuickCapture(note.id), "Could not delete this note.")
+                      }
                       className="shrink-0 text-muted opacity-0 transition-opacity hover:text-rose-400 group-hover:opacity-100"
                       aria-label="Delete note"
                     >

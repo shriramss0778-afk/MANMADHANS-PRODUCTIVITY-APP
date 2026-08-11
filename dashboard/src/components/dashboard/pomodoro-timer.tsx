@@ -17,7 +17,7 @@ const MODE_META: Record<Mode, { label: string; from: string; to: string }> = {
 
 export function PomodoroTimer({ soundEnabled = true }: { soundEnabled?: boolean }) {
   const [mode, setMode] = useState<Mode>("focus");
-  const { timerSettings, focusSessions, recordFocusSession } = useStore();
+  const { timerSettings, focusSessions, recordFocusSession, runAction } = useStore();
   const durations: Record<Mode, number> = useMemo(
     () => ({
       focus: timerSettings.focus * 60,
@@ -96,7 +96,10 @@ export function PomodoroTimer({ soundEnabled = true }: { soundEnabled?: boolean 
         if (value <= 1) {
           if (mode === "focus") {
             setCompleted((count) => count + 1);
-            void recordFocusSession("focus", timerSettings.focus);
+            runAction(
+              () => recordFocusSession("focus", timerSettings.focus),
+              "Your focus session could not be saved.",
+            );
           }
           playTimerDoneSound();
           setRunning(false);
@@ -109,7 +112,7 @@ export function PomodoroTimer({ soundEnabled = true }: { soundEnabled?: boolean 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [mode, playTimerDoneSound, recordFocusSession, running, timerSettings.focus]);
+  }, [mode, playTimerDoneSound, recordFocusSession, runAction, running, timerSettings.focus]);
 
   useEffect(() => {
     setRemaining(durations[mode]);

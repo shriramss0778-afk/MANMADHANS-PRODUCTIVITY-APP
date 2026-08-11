@@ -17,26 +17,28 @@ const MOODS = [
 ] as const;
 
 export function ReflectionJournal() {
-  const { reflections, saveReflection } = useStore();
+  const { reflections, saveReflection, runAction } = useStore();
   const [mood, setMood] = useState<string>("good");
   const [gratitude, setGratitude] = useState("");
   const [wins, setWins] = useState("");
   const [improve, setImprove] = useState("");
   const [saved, setSaved] = useState(false);
 
-  const save = async () => {
-    await saveReflection({
-      date: new Date().toISOString().slice(0, 10),
-      mood: mood as "great" | "good" | "okay" | "low",
-      gratitude,
-      wins,
-      improve,
-    });
-    setSaved(true);
-    setGratitude("");
-    setWins("");
-    setImprove("");
-    setTimeout(() => setSaved(false), 2000);
+  const save = () => {
+    runAction(async () => {
+      await saveReflection({
+        date: new Date().toISOString().slice(0, 10),
+        mood: mood as "great" | "good" | "okay" | "low",
+        gratitude,
+        wins,
+        improve,
+      });
+      setSaved(true);
+      setGratitude("");
+      setWins("");
+      setImprove("");
+      setTimeout(() => setSaved(false), 2000);
+    }, "Could not save your reflection.");
   };
 
   return (
@@ -85,7 +87,7 @@ export function ReflectionJournal() {
           </div>
         </div>
 
-        <Button onClick={() => void save()} className="w-full">
+        <Button onClick={save} className="w-full">
           <Save className="size-4" /> {saved ? "Saved!" : "Save reflection"}
         </Button>
 

@@ -27,6 +27,7 @@ import {
   updateAppSettings,
   updateManagedUser,
 } from "@/lib/api/dashboard";
+import { getErrorMessage } from "@/lib/api/errors";
 import type { AppSettings, ManagedUser } from "@/lib/types";
 
 type RoleValue = ManagedUser["role"];
@@ -79,8 +80,9 @@ export default function IdentityMatrixPage() {
       ]);
       setUsers(nextUsers);
       setSettings(nextSettings);
-    } catch {
-      setError("Unable to load the Identity Matrix.");
+    } catch (loadError) {
+      console.error("Failed to load the Identity Matrix", loadError);
+      setError(getErrorMessage(loadError, "Unable to load the Identity Matrix."));
     } finally {
       setLoading(false);
     }
@@ -124,8 +126,9 @@ export default function IdentityMatrixPage() {
       });
       setShowInviteForm(false);
       setCopied(false);
-    } catch {
-      setError("Unable to invite this identity.");
+    } catch (inviteError) {
+      console.error("Failed to invite identity", inviteError);
+      setError(getErrorMessage(inviteError, "Unable to invite this identity."));
     } finally {
       setSaving(false);
     }
@@ -146,8 +149,9 @@ export default function IdentityMatrixPage() {
           setInviteMessage(buildInviteMessage(latestUser, saved.accessPortalUrl));
         }
       }
-    } catch {
-      setError("Unable to save the access portal URL.");
+    } catch (settingsError) {
+      console.error("Failed to save the access portal URL", settingsError);
+      setError(getErrorMessage(settingsError, "Unable to save the access portal URL."));
     } finally {
       setSettingsSaving(false);
     }
@@ -166,9 +170,10 @@ export default function IdentityMatrixPage() {
     try {
       const saved = await updateManagedUser(id, updates);
       setUsers((prev) => prev.map((user) => (user.id === id ? saved : user)));
-    } catch {
+    } catch (updateError) {
+      console.error("Failed to update identity", updateError);
       setUsers((prev) => prev.map((user) => (user.id === id ? current : user)));
-      setError("Unable to update this identity.");
+      setError(getErrorMessage(updateError, "Unable to update this identity."));
     }
   };
 
@@ -177,17 +182,23 @@ export default function IdentityMatrixPage() {
     setUsers((prev) => prev.filter((user) => user.id !== id));
     try {
       await deleteManagedUser(id);
-    } catch {
+    } catch (deleteError) {
+      console.error("Failed to delete identity", deleteError);
       setUsers(previous);
-      setError("Unable to delete this identity.");
+      setError(getErrorMessage(deleteError, "Unable to delete this identity."));
     }
   };
 
   const copyInvite = async () => {
     if (!inviteMessage) return;
-    await navigator.clipboard.writeText(inviteMessage);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    try {
+      await navigator.clipboard.writeText(inviteMessage);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch (copyError) {
+      console.error("Failed to copy the invite message", copyError);
+      setError("Could not copy the invite. Copy it manually from the box above.");
+    }
   };
 
   return (

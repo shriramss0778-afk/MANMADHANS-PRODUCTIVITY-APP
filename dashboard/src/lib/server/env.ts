@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { ApiError } from "./errors";
+import { logger } from "./logger";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
@@ -23,7 +25,7 @@ function loadEnv(): Env {
     return cachedEnv;
   }
 
-  cachedEnv = envSchema.parse({
+  const parsed = envSchema.safeParse({
     DATABASE_URL: process.env.DATABASE_URL,
     JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
@@ -37,6 +39,13 @@ function loadEnv(): Env {
     DEFAULT_ADMIN_NAME: process.env.DEFAULT_ADMIN_NAME ?? "Super Admin",
   });
 
+  if (!parsed.success) {
+    const invalidKeys = parsed.error.issues.map((issue) => issue.path.join("."));
+    logger.error("Server environment configuration is invalid", { invalidKeys });
+    throw new ApiError(500, "SERVER_MISCONFIGURED", "Server environment configuration is invalid");
+  }
+
+  cachedEnv = parsed.data;
   return cachedEnv;
 }
 

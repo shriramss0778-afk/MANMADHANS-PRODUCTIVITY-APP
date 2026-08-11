@@ -8,7 +8,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { useStore } from "@/lib/store";
 
 export default function TasksPage() {
-  const { tasks, addTask } = useStore();
+  const { tasks, addTask, runAction } = useStore();
   const count = (s: string) => tasks.filter((t) => t.status === s).length;
 
   return (
@@ -16,7 +16,7 @@ export default function TasksPage() {
       <PageHeader
         title="Task Board"
         subtitle="Drag cards between columns to update status"
-        action={<TaskDialog onSave={addTask} />}
+        action={<TaskDialog onSave={(task) => runAction(() => addTask(task), "Could not create this task.")} />}
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

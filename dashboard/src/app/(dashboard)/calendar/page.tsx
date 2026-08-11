@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStore } from "@/lib/store";
 
 export default function CalendarPage() {
-  const { events: calendarEvents, addEvent, removeEvent } = useStore();
+  const { events: calendarEvents, addEvent, removeEvent, runAction } = useStore();
   const [month, setMonth] = useState(new Date("2026-05-31"));
   const [selected, setSelected] = useState("2026-05-31");
 
@@ -33,7 +33,12 @@ export default function CalendarPage() {
       <PageHeader
         title="Calendar & Planning"
         subtitle="Time-block your day, week, and month"
-        action={<AddEventDialog defaultDate={selected} onAdd={addEvent} />}
+        action={
+          <AddEventDialog
+            defaultDate={selected}
+            onAdd={(event) => runAction(() => addEvent(event), "Could not add this event.")}
+          />
+        }
       />
 
       <Tabs defaultValue="month">
@@ -86,7 +91,7 @@ export default function CalendarPage() {
                     </Badge>
                     <button
                       type="button"
-                      onClick={() => removeEvent(e.id)}
+                      onClick={() => runAction(() => removeEvent(e.id), "Could not delete this event.")}
                       aria-label={`Delete ${e.title}`}
                       className="text-muted opacity-0 transition-all hover:text-rose-400 focus:outline-none focus-visible:opacity-100 group-hover:opacity-100"
                     >

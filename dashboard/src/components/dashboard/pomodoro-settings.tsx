@@ -16,7 +16,7 @@ import {
 import { useStore } from "@/lib/store";
 
 export function PomodoroSettings() {
-  const { timerSettings, setTimerSetting, resetTimerSettings } = useStore();
+  const { timerSettings, setTimerSetting, resetTimerSettings, runAction } = useStore();
   const [values, setValues] = useState({ ...timerSettings });
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export function PomodoroSettings() {
   function onChange(mode: keyof typeof values, v: string) {
     const n = Math.max(1, Math.round(Number(v) || 0));
     setValues((s) => ({ ...s, [mode]: n }));
-    setTimerSetting(mode, n);
+    runAction(() => setTimerSetting(mode, n), "Could not save your timer settings.");
   }
 
   return (
@@ -80,7 +80,12 @@ export function PomodoroSettings() {
 
         <DialogFooter>
           <div className="flex flex-1 items-center justify-start">
-            <Button variant="secondary" onClick={() => resetTimerSettings()}>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                runAction(resetTimerSettings, "Could not reset your timer settings.")
+              }
+            >
               <RefreshCw className="size-4 mr-2" /> Reset to defaults
             </Button>
           </div>

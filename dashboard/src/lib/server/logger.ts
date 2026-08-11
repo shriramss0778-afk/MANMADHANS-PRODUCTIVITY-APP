@@ -1,10 +1,29 @@
 type Meta = Record<string, unknown> | undefined;
 
+function serializeValue(value: unknown): unknown {
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+      ...(value.cause !== undefined ? { cause: serializeValue(value.cause) } : {}),
+    };
+  }
+  return value;
+}
+
+function serializeMeta(meta: Meta) {
+  if (!meta) {
+    return undefined;
+  }
+  return Object.fromEntries(Object.entries(meta).map(([key, value]) => [key, serializeValue(value)]));
+}
+
 function log(level: "info" | "warn" | "error", message: string, meta?: Meta) {
   const entry = {
     level,
     message,
-    meta,
+    meta: serializeMeta(meta),
     timestamp: new Date().toISOString(),
   };
 

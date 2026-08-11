@@ -5,6 +5,7 @@ import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
 import { cookies, headers } from "next/headers";
 import { ApiError } from "./errors";
 import { env } from "./env";
+import { logger } from "./logger";
 import { prisma } from "./prisma";
 
 const ACCESS_TOKEN_COOKIE = "dashboard_access_token";
@@ -158,21 +159,24 @@ export async function requireAuth() {
     throw new ApiError(401, "UNAUTHORIZED", "Authentication required");
   }
 
+  let payload: JwtPayload;
   try {
-    const payload = await verifyAccessToken(token);
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      include: { timerSettings: true },
-    });
-
-    if (!user) {
-      throw new ApiError(401, "UNAUTHORIZED", "User no longer exists");
-    }
-
-    return user;
-  } catch {
+    payload = await verifyAccessToken(token);
+  } catch (error) {
+    logger.warn("Access token verification failed", { error });
     throw new ApiError(401, "UNAUTHORIZED", "Invalid or expired access token");
   }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    include: { timerSettings: true },
+  });
+
+  if (!user) {
+    throw new ApiError(401, "UNAUTHORIZED", "User no longer exists");
+  }
+
+  return user;
 }
 
 export function requireRole(user: Pick<User, "role">, roles: Role[]) {
@@ -191,7 +195,8 @@ export async function rotateRefreshToken() {
   let payload: JwtPayload;
   try {
     payload = await verifyRefreshToken(refreshToken);
-  } catch {
+  } catch (error) {
+    logger.warn("Refresh token verification failed", { error });
     throw new ApiError(401, "UNAUTHORIZED", "Invalid refresh token");
   }
 

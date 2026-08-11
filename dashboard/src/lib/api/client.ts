@@ -1,6 +1,7 @@
 "use client";
 
 import axios from "axios";
+import { getErrorMessage } from "./errors";
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
@@ -30,9 +31,7 @@ api.interceptors.response.use(
     const apiMessage = error.response?.data?.error?.message;
 
     if (error.response?.status !== 401 || originalRequest?._retry || isAuthRoute) {
-      if (apiMessage) {
-        error.message = apiMessage;
-      }
+      error.message = getErrorMessage(error, error.message);
       throw error;
     }
 
@@ -44,20 +43,29 @@ api.interceptors.response.use(
           setAccessToken(token);
           return token;
         })
-        .catch(() => {
+        .catch((refreshError) => {
           setAccessToken(null);
-          return null;
+          throw refreshError;
         })
         .finally(() => {
           refreshPromise = null;
         });
     }
 
-    const token = await refreshPromise;
+    let token: string | null;
+    try {
+      token = await refreshPromise;
+    } catch (refreshError) {
+      error.cause = refreshError;
+      error.message = getErrorMessage(
+        refreshError,
+        apiMessage ?? "Your session has expired. Please sign in again.",
+      );
+      throw error;
+    }
+
     if (!token) {
-      if (apiMessage) {
-        error.message = apiMessage;
-      }
+      error.message = apiMessage ?? "Your session has expired. Please sign in again.";
       throw error;
     }
 

@@ -27,7 +27,8 @@ import { useStore } from "@/lib/store";
 import type { BookStatus } from "@/lib/types";
 
 export default function BooksPage() {
-  const { user, books, addBook, updateBook, removeBook, updateReadingGoal, analytics } = useStore();
+  const { user, books, addBook, updateBook, removeBook, updateReadingGoal, analytics, runAction } =
+    useStore();
   const [tab, setTab] = useState<BookStatus | "all">("all");
   const [goalOpen, setGoalOpen] = useState(false);
   const [goalInput, setGoalInput] = useState(String(user?.readingGoal ?? 24));
@@ -44,11 +45,13 @@ export default function BooksPage() {
   const totalPages = books.reduce((sum, book) => sum + book.pagesRead, 0);
   const yearGoal = user?.readingGoal ?? 24;
 
-  const saveReadingGoal = async () => {
+  const saveReadingGoal = () => {
     const nextGoal = Math.max(1, parseInt(goalInput, 10) || yearGoal || 24);
-    await updateReadingGoal(nextGoal);
-    setGoalInput(String(nextGoal));
-    setGoalOpen(false);
+    runAction(async () => {
+      await updateReadingGoal(nextGoal);
+      setGoalInput(String(nextGoal));
+      setGoalOpen(false);
+    }, "Could not update your reading goal.");
   };
 
   return (
@@ -56,7 +59,9 @@ export default function BooksPage() {
       <PageHeader
         title="Reading Tracker"
         subtitle="Build the streak, finish the shelf"
-        action={<AddBookDialog onAdd={addBook} />}
+        action={
+          <AddBookDialog onAdd={(book) => runAction(() => addBook(book), "Could not add this book.")} />
+        }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -131,7 +136,7 @@ export default function BooksPage() {
                     <Button variant="secondary" onClick={() => setGoalOpen(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={() => void saveReadingGoal()}>
+                    <Button onClick={saveReadingGoal}>
                       Save goal
                     </Button>
                   </DialogFooter>
@@ -181,8 +186,8 @@ export default function BooksPage() {
                   key={book.id}
                   book={book}
                   index={index}
-                  onEdit={updateBook}
-                  onDelete={removeBook}
+                  onEdit={(next) => runAction(() => updateBook(next), "Could not update this book.")}
+                  onDelete={(id) => runAction(() => removeBook(id), "Could not delete this book.")}
                 />
               ))}
             </AnimatePresence>

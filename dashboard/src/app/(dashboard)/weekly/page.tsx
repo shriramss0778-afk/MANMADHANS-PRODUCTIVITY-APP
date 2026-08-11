@@ -43,6 +43,7 @@ export default function WeeklyPage() {
     updateHabit,
     removeHabit,
     toggleHabitDay,
+    runAction,
   } = useStore();
 
   // Anchor the week containing the app's "today" (Sun start).
@@ -70,7 +71,7 @@ export default function WeeklyPage() {
     const title = (drafts[date] ?? "").trim();
     if (!title) return;
     const todo: WeeklyTodo = { id: `wt-${Date.now()}`, date, title, done: false };
-    addWeeklyTodo(todo);
+    runAction(() => addWeeklyTodo(todo), "Could not add this to-do.");
     setDrafts((d) => ({ ...d, [date]: "" }));
   };
 
@@ -159,7 +160,9 @@ export default function WeeklyPage() {
                         className="group flex items-center gap-2 rounded-lg bg-[var(--surface)] p-2"
                       >
                         <button
-                          onClick={() => toggleWeeklyTodo(t.id)}
+                          onClick={() =>
+                            runAction(() => toggleWeeklyTodo(t.id), "Could not update this to-do.")
+                          }
                           aria-label={t.done ? "Mark incomplete" : "Mark complete"}
                           className="shrink-0"
                         >
@@ -178,7 +181,9 @@ export default function WeeklyPage() {
                           {t.title}
                         </span>
                         <button
-                          onClick={() => removeWeeklyTodo(t.id)}
+                          onClick={() =>
+                            runAction(() => removeWeeklyTodo(t.id), "Could not delete this to-do.")
+                          }
                           aria-label="Delete to-do"
                           className="text-muted opacity-0 transition-all hover:text-rose-400 group-hover:opacity-100"
                         >
@@ -220,7 +225,7 @@ export default function WeeklyPage() {
             <p className="text-sm text-muted">Tap a cell to mark a habit done for that day</p>
           </div>
           <HabitDialog
-            onSave={addHabit}
+            onSave={(habit) => runAction(() => addHabit(habit), "Could not create this habit.")}
             trigger={
               <Button size="sm">
                 <Plus className="size-4" /> Add habit
@@ -274,7 +279,12 @@ export default function WeeklyPage() {
                         return (
                           <td key={key} className="px-1 text-center">
                             <button
-                              onClick={() => toggleHabitDay(h.id, key)}
+                              onClick={() =>
+                                runAction(
+                                  () => toggleHabitDay(h.id, key),
+                                  "Could not update this habit.",
+                                )
+                              }
                               aria-label={`${h.name} on ${format(d, "EEE")}`}
                               className={cn(
                                 "mx-auto grid size-8 place-items-center rounded-lg border transition-all",
@@ -304,7 +314,9 @@ export default function WeeklyPage() {
                             <Pencil className="size-3.5" />
                           </button>
                           <button
-                            onClick={() => removeHabit(h.id)}
+                            onClick={() =>
+                              runAction(() => removeHabit(h.id), "Could not delete this habit.")
+                            }
                             aria-label={`Delete ${h.name}`}
                             className="text-muted transition-colors hover:text-rose-400"
                           >
@@ -328,7 +340,7 @@ export default function WeeklyPage() {
           open={!!editingHabit}
           onOpenChange={(o) => !o && setEditingHabit(null)}
           onSave={(h) => {
-            updateHabit(h);
+            runAction(() => updateHabit(h), "Could not update this habit.");
             setEditingHabit(null);
           }}
         />
