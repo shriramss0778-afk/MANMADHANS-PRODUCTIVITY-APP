@@ -1,80 +1,39 @@
 import { prisma } from "@/lib/server/prisma";
-import { hashPassword, requireAuth } from "@/lib/server/auth";
-import { ApiError } from "@/lib/server/errors";
-import { handleRouteError, json, optionsResponse } from "@/lib/server/api";
-import { mapManagedUser } from "@/lib/server/mappers";
+import { hashPassword } from "@/lib/server/auth";
+import { corsPreflight, json, superAdminRoute } from "@/lib/server/api";
+import { mapManagedUser, type ManagedUserRecord } from "@/lib/server/mappers";
 import { managedUserSchema } from "@/lib/server/schemas";
+import { DEFAULT_READING_GOAL, DEFAULT_TIMER_SETTINGS } from "@/lib/defaults";
 
-export async function OPTIONS() {
-  return optionsResponse();
-}
+export { corsPreflight as OPTIONS };
 
-export async function GET() {
-  try {
-    const currentUser = await requireAuth();
-    if (currentUser.role !== "SUPER_ADMIN") {
-      throw new ApiError(403, "FORBIDDEN", "Only super admins can manage users");
-    }
+export const GET = superAdminRoute("users", async () => {
+  const users = (await prisma.user.findMany({
+    orderBy: [{ createdAt: "desc" }],
+  })) as ManagedUserRecord[];
 
-    const users = (await prisma.user.findMany({
-      orderBy: [{ createdAt: "desc" }],
-    })) as Array<{
-      id: string;
-      email: string;
-      name: string;
-      role: string;
-      isActive: boolean;
-      googleLoginEnabled: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-    }>;
+  return json({ data: users.map(mapManagedUser) });
+});
 
-    return json({ data: users.map(mapManagedUser) });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+export const POST = superAdminRoute("users", async ({ request }) => {
+  const body = managedUserSchema.parse(await request.json());
+  const passwordHash = await hashPassword("Welcome@123");
 
-export async function POST(request: Request) {
-  try {
-    const currentUser = await requireAuth();
-    if (currentUser.role !== "SUPER_ADMIN") {
-      throw new ApiError(403, "FORBIDDEN", "Only super admins can manage users");
-    }
-    const body = managedUserSchema.parse(await request.json());
-    const passwordHash = await hashPassword("Welcome@123");
-
-    const user = (await prisma.user.create({
-      data: {
-        email: body.email.toLowerCase(),
-        name: body.name,
-        role: body.role as never,
-        isActive: true as never,
-        googleLoginEnabled: true as never,
-        passwordChangeRequired: true as never,
-        readingGoal: 24,
-        passwordHash,
-        timerSettings: {
-          create: {
-            focus: 25,
-            short: 5,
-            long: 15,
-          },
-        },
+  const user = (await prisma.user.create({
+    data: {
+      email: body.email.toLowerCase(),
+      name: body.name,
+      role: body.role as never,
+      isActive: true as never,
+      googleLoginEnabled: true as never,
+      passwordChangeRequired: true as never,
+      readingGoal: DEFAULT_READING_GOAL,
+      passwordHash,
+      timerSettings: {
+        create: DEFAULT_TIMER_SETTINGS,
       },
-    })) as {
-      id: string;
-      email: string;
-      name: string;
-      role: string;
-      isActive: boolean;
-      googleLoginEnabled: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-    };
+    },
+  })) as ManagedUserRecord;
 
-    return json({ data: mapManagedUser(user) }, { status: 201 });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+  return json({ data: mapManagedUser(user) }, { status: 201 });
+});

@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import { ApiError } from "./errors";
 import { env } from "./env";
 import { prisma } from "./prisma";
+import { DEFAULT_READING_GOAL, DEFAULT_TIMER_SETTINGS } from "@/lib/defaults";
 
 const ACCESS_TOKEN_COOKIE = "dashboard_access_token";
 const REFRESH_TOKEN_COOKIE = "dashboard_refresh_token";
@@ -41,27 +42,28 @@ async function signToken(payload: JwtPayload, expiresIn: string, secretValue: st
     .sign(secret(secretValue));
 }
 
-export async function createAccessToken(user: Pick<User, "id" | "email" | "role">) {
+type SessionUser = Pick<User, "id" | "email" | "role">;
+
+function claims(user: SessionUser, type: JwtPayload["type"]): JwtPayload {
+  return {
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    type,
+  };
+}
+
+export async function createAccessToken(user: SessionUser) {
   return signToken(
-    {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      type: "access",
-    },
+    claims(user, "access"),
     `${env.JWT_ACCESS_EXPIRES_IN_MINUTES}m`,
     env.JWT_ACCESS_SECRET,
   );
 }
 
-export async function createRefreshToken(user: Pick<User, "id" | "email" | "role">) {
+export async function createRefreshToken(user: SessionUser) {
   return signToken(
-    {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      type: "refresh",
-    },
+    claims(user, "refresh"),
     `${env.JWT_REFRESH_EXPIRES_IN_DAYS}d`,
     env.JWT_REFRESH_SECRET,
   );
@@ -106,7 +108,17 @@ export async function revokeRefreshToken(refreshToken: string) {
   });
 }
 
-export async function persistSession(user: Pick<User, "id" | "email" | "role">) {
+function sessionCookie(expires: Date) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    expires,
+  };
+}
+
+export async function persistSession(user: SessionUser) {
   const [accessToken, refreshToken] = await Promise.all([
     createAccessToken(user),
     createRefreshToken(user),
@@ -115,20 +127,12 @@ export async function persistSession(user: Pick<User, "id" | "email" | "role">) 
   await storeRefreshToken(user.id, refreshToken);
 
   const cookieStore = await cookies();
-  cookieStore.set(REFRESH_TOKEN_COOKIE, refreshToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    expires: refreshExpiryDate(),
-  });
-  cookieStore.set(ACCESS_TOKEN_COOKIE, accessToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    expires: new Date(Date.now() + env.JWT_ACCESS_EXPIRES_IN_MINUTES * 60 * 1000),
-  });
+  cookieStore.set(REFRESH_TOKEN_COOKIE, refreshToken, sessionCookie(refreshExpiryDate()));
+  cookieStore.set(
+    ACCESS_TOKEN_COOKIE,
+    accessToken,
+    sessionCookie(new Date(Date.now() + env.JWT_ACCESS_EXPIRES_IN_MINUTES * 60 * 1000)),
+  );
 
   return { accessToken, refreshToken };
 }
@@ -173,6 +177,14 @@ export async function requireAuth() {
   } catch {
     throw new ApiError(401, "UNAUTHORIZED", "Invalid or expired access token");
   }
+}
+
+export async function requireSuperAdmin(resource = "this resource") {
+  const user = await requireAuth();
+  if (user.role !== "SUPER_ADMIN") {
+    throw new ApiError(403, "FORBIDDEN", `Only super admins can manage ${resource}`);
+  }
+  return user;
 }
 
 export function requireRole(user: Pick<User, "role">, roles: Role[]) {
@@ -233,15 +245,11 @@ export async function ensureDefaultAdmin() {
         isActive: true as never,
         googleLoginEnabled: true as never,
         passwordChangeRequired: false as never,
-        readingGoal: existing.readingGoal ?? 24,
+        readingGoal: existing.readingGoal ?? DEFAULT_READING_GOAL,
         timerSettings: existing.id
           ? {
               upsert: {
-                create: {
-                  focus: 25,
-                  short: 5,
-                  long: 15,
-                },
+                create: DEFAULT_TIMER_SETTINGS,
                 update: {},
               },
             }
@@ -259,13 +267,9 @@ export async function ensureDefaultAdmin() {
       isActive: true as never,
       googleLoginEnabled: true as never,
       passwordChangeRequired: false as never,
-      readingGoal: 24,
+      readingGoal: DEFAULT_READING_GOAL,
       timerSettings: {
-        create: {
-          focus: 25,
-          short: 5,
-          long: 15,
-        },
+        create: DEFAULT_TIMER_SETTINGS,
       },
     },
   });

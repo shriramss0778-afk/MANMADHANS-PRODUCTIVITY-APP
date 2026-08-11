@@ -1,42 +1,23 @@
 import { prisma } from "@/lib/server/prisma";
-import { requireAuth } from "@/lib/server/auth";
-import { json, handleRouteError, optionsResponse } from "@/lib/server/api";
+import { authedRoute, corsPreflight, json } from "@/lib/server/api";
 import { timerSettingsSchema } from "@/lib/server/schemas";
 import { mapTimerSettings } from "@/lib/server/mappers";
 
-export async function OPTIONS() {
-  return optionsResponse();
-}
+export { corsPreflight as OPTIONS };
 
-export async function GET() {
-  try {
-    const user = await requireAuth();
-    return json({ data: mapTimerSettings(user.timerSettings) });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+export const GET = authedRoute(async ({ user }) => json({ data: mapTimerSettings(user.timerSettings) }));
 
-export async function PUT(request: Request) {
-  try {
-    const user = await requireAuth();
-    const body = timerSettingsSchema.parse(await request.json());
-    const settings = await prisma.timerSettings.upsert({
-      where: { userId: user.id },
-      update: {
-        focus: body.focus,
-        short: body.short,
-        long: body.long,
-      },
-      create: {
-        userId: user.id,
-        focus: body.focus,
-        short: body.short,
-        long: body.long,
-      },
-    });
-    return json({ data: mapTimerSettings(settings) });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+export const PUT = authedRoute(async ({ request, user }) => {
+  const body = timerSettingsSchema.parse(await request.json());
+  const values = {
+    focus: body.focus,
+    short: body.short,
+    long: body.long,
+  };
+  const settings = await prisma.timerSettings.upsert({
+    where: { userId: user.id },
+    update: values,
+    create: { userId: user.id, ...values },
+  });
+  return json({ data: mapTimerSettings(settings) });
+});

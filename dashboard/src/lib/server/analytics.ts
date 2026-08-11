@@ -1,21 +1,25 @@
 import type { Book, FocusSession, Habit, HabitLog, KnowledgeEntry, Reflection, Task } from "@prisma/client";
+import { addUtcDays, dateKey, relativeDateKey } from "@/lib/dates";
 
 const shortDay = new Intl.DateTimeFormat("en-US", { weekday: "short" });
 const shortMonth = new Intl.DateTimeFormat("en-US", { month: "short" });
 
 function sameDay(a: Date, b: Date) {
-  return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+  return dateKey(a) === dateKey(b);
+}
+
+/** The `count` most recent days, oldest first, ending today. */
+function recentDays(count: number) {
+  const today = new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (count - 1 - index));
+    return date;
+  });
 }
 
 export function buildWeeklyLearningHours(knowledge: KnowledgeEntry[], focusSessions: FocusSession[]) {
-  const today = new Date();
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (6 - index));
-    return date;
-  });
-
-  return days.map((date) => {
+  return recentDays(7).map((date) => {
     const focusMinutes = focusSessions
       .filter((session) => sameDay(session.completedAt, date) && session.mode === "focus")
       .reduce((sum, session) => sum + session.durationMins, 0);
@@ -96,23 +100,26 @@ export function buildProductivityRadar(tasks: Task[], books: Book[], habits: (Ha
 export function buildHeatmap(sourceDates: Date[], length: number) {
   const counts = new Map<string, number>();
   sourceDates.forEach((date) => {
-    const key = date.toISOString().slice(0, 10);
+    const key = dateKey(date);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   });
 
-  return Array.from({ length }, (_, index) => {
-    const date = new Date();
-    date.setUTCDate(date.getUTCDate() - (length - 1 - index));
-    const count = counts.get(date.toISOString().slice(0, 10)) ?? 0;
-    return Math.min(4, count);
+  return Array.from({ length }, (_, index) =>
+    Math.min(4, counts.get(relativeDateKey(index - (length - 1))) ?? 0),
+  );
+}
+
+/** Spread each book's pages read across consecutive days so it can be heatmapped. */
+function readingActivityDates(books: Book[]) {
+  return books.flatMap((book) => {
+    const anchor = book.startedAt ?? book.createdAt;
+    const count = Math.max(1, Math.ceil(book.pagesRead / 25));
+    return Array.from({ length: count }, (_, index) => addUtcDays(anchor, index));
   });
 }
 
 export function buildDailyPagesSeries(books: Book[]) {
-  const today = new Date();
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (6 - index));
+  return recentDays(7).map((date) => {
     const pages = books
       .filter((book) => book.startedAt && book.startedAt <= date)
       .reduce((sum, book) => {
@@ -127,4 +134,29 @@ export function buildDailyPagesSeries(books: Book[]) {
       pages,
     };
   });
+}
+
+/** The analytics payload returned by both the analytics route and the bootstrap state. */
+export function buildAnalytics(input: {
+  knowledge: KnowledgeEntry[];
+  books: Book[];
+  tasks: Task[];
+  habits: (Habit & { logs: HabitLog[] })[];
+  reflections: Reflection[];
+  focusSessions: FocusSession[];
+}) {
+  const { knowledge, books, tasks, habits, reflections, focusSessions } = input;
+
+  return {
+    weeklyLearningHours: buildWeeklyLearningHours(knowledge, focusSessions),
+    knowledgeGrowth: buildKnowledgeGrowth(knowledge),
+    categoryDistribution: buildCategoryDistribution(knowledge),
+    productivityRadar: buildProductivityRadar(tasks, books, habits, reflections),
+    focusHeatmap: buildHeatmap(
+      focusSessions.map((session) => session.completedAt),
+      119,
+    ),
+    readingHeatmap: buildHeatmap(readingActivityDates(books), 49),
+    dailyPages: buildDailyPagesSeries(books),
+  };
 }

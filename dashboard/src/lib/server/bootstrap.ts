@@ -1,5 +1,6 @@
+import type { User } from "@prisma/client";
 import { prisma } from "./prisma";
-import { ensureDefaultAdmin } from "./auth";
+import { ensureDefaultAdmin, persistSession } from "./auth";
 import {
   mapBook,
   mapCalendarEvent,
@@ -7,19 +8,21 @@ import {
   mapHabit,
   mapKnowledgeEntry,
   mapNote,
+  mapProfile,
   mapReflection,
   mapTask,
   mapTimerSettings,
   mapWeeklyTodo,
 } from "./mappers";
-import {
-  buildCategoryDistribution,
-  buildDailyPagesSeries,
-  buildHeatmap,
-  buildKnowledgeGrowth,
-  buildProductivityRadar,
-  buildWeeklyLearningHours,
-} from "./analytics";
+import { buildAnalytics } from "./analytics";
+import { withHabitLogs, withSubtasks } from "./relations";
+
+/** Start a session for `user` and return the access token alongside the full bootstrap state. */
+export async function startSessionState(user: Pick<User, "id" | "email" | "role">) {
+  const { accessToken } = await persistSession(user);
+  const state = await getBootstrapState(user.id);
+  return { accessToken, ...state };
+}
 
 export async function getBootstrapState(userId?: string) {
   const resolvedUserId =
@@ -44,13 +47,13 @@ export async function getBootstrapState(userId?: string) {
       prisma.task.findMany({
         where: { userId: user.id },
         orderBy: [{ createdAt: "desc" }],
-        include: { subtasks: { orderBy: { createdAt: "asc" } } },
+        include: withSubtasks,
       }),
       prisma.calendarEvent.findMany({ where: { userId: user.id }, orderBy: [{ date: "asc" }, { startTime: "asc" }] }),
       prisma.habit.findMany({
         where: { userId: user.id },
         orderBy: { createdAt: "asc" },
-        include: { logs: { orderBy: { date: "asc" } } },
+        include: withHabitLogs,
       }),
       prisma.weeklyTodo.findMany({ where: { userId: user.id }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
       prisma.note.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" } }),
@@ -62,14 +65,7 @@ export async function getBootstrapState(userId?: string) {
   const quickCapture = notes.filter((note) => note.kind === "QUICK_CAPTURE");
 
   return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      passwordChangeRequired: user.passwordChangeRequired,
-      readingGoal: user.readingGoal,
-    },
+    user: mapProfile(user),
     timerSettings: mapTimerSettings(user.timerSettings),
     knowledge: knowledge.map(mapKnowledgeEntry),
     books: books.map(mapBook),
@@ -81,27 +77,6 @@ export async function getBootstrapState(userId?: string) {
     quickCapture: quickCapture.map(mapNote),
     reflections: reflections.map(mapReflection),
     focusSessions: focusSessions.map(mapFocusSession),
-    analytics: {
-      weeklyLearningHours: buildWeeklyLearningHours(knowledge, focusSessions),
-      knowledgeGrowth: buildKnowledgeGrowth(knowledge),
-      categoryDistribution: buildCategoryDistribution(knowledge),
-      productivityRadar: buildProductivityRadar(tasks, books, habits, reflections),
-      focusHeatmap: buildHeatmap(focusSessions.map((session) => session.completedAt), 119),
-      readingHeatmap: buildHeatmap(
-        books.flatMap((book) => {
-          const points: Date[] = [];
-          const count = Math.max(1, Math.ceil(book.pagesRead / 25));
-          const anchor = book.startedAt ?? book.createdAt;
-          for (let index = 0; index < count; index += 1) {
-            const date = new Date(anchor);
-            date.setUTCDate(date.getUTCDate() + index);
-            points.push(date);
-          }
-          return points;
-        }),
-        49,
-      ),
-      dailyPages: buildDailyPagesSeries(books),
-    },
+    analytics: buildAnalytics({ knowledge, books, tasks, habits, reflections, focusSessions }),
   };
 }

@@ -45,6 +45,8 @@ import {
   updateWeeklyTodo as persistWeeklyTodo,
 } from "@/lib/api/dashboard";
 import { setAccessToken } from "@/lib/api/client";
+import { removeById, replaceById } from "@/lib/collections";
+import { DEFAULT_TIMER_SETTINGS } from "@/lib/defaults";
 import type {
   AnalyticsPayload,
   AppNote,
@@ -60,12 +62,6 @@ import type {
   TimerSettings,
   WeeklyTodo,
 } from "@/lib/types";
-
-const DEFAULT_TIMER_SETTINGS: TimerSettings = {
-  focus: 25,
-  short: 5,
-  long: 15,
-};
 
 const EMPTY_ANALYTICS: AnalyticsPayload = {
   weeklyLearningHours: [],
@@ -269,13 +265,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateKnowledge = useCallback(async (entry: KnowledgeEntry) => {
     const saved = await persistKnowledge(entry.id, withoutId(entry));
-    setKnowledge((prev) => prev.map((item) => (item.id === entry.id ? saved : item)));
+    setKnowledge((prev) => replaceById(prev, saved));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
   const removeKnowledge = useCallback(async (id: string) => {
     await deleteKnowledge(id);
-    setKnowledge((prev) => prev.filter((item) => item.id !== id));
+    setKnowledge((prev) => removeById(prev, id));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
@@ -287,13 +283,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateBook = useCallback(async (book: Book) => {
     const saved = await persistBook(book.id, withoutId(book));
-    setBooks((prev) => prev.map((item) => (item.id === book.id ? saved : item)));
+    setBooks((prev) => replaceById(prev, saved));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
   const removeBook = useCallback(async (id: string) => {
     await deleteBook(id);
-    setBooks((prev) => prev.filter((item) => item.id !== id));
+    setBooks((prev) => removeById(prev, id));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
@@ -305,19 +301,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateTask = useCallback(async (task: Task) => {
     const saved = await persistTask(task.id, withoutId(task));
-    setTasks((prev) => prev.map((item) => (item.id === task.id ? saved : item)));
+    setTasks((prev) => replaceById(prev, saved));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
   const removeTask = useCallback(async (id: string) => {
     await deleteTask(id);
-    setTasks((prev) => prev.filter((item) => item.id !== id));
+    setTasks((prev) => removeById(prev, id));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
   const setTaskStatus = useCallback(async (id: string, status: TaskStatus) => {
     const saved = await persistTask(id, { status });
-    setTasks((prev) => prev.map((item) => (item.id === id ? saved : item)));
+    setTasks((prev) => replaceById(prev, saved));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
@@ -329,7 +325,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         subtask.id === subtaskId ? { ...subtask, done: !subtask.done } : subtask,
       ),
     });
-    setTasks((prev) => prev.map((item) => (item.id === taskId ? saved : item)));
+    setTasks((prev) => replaceById(prev, saved));
     await refreshAnalytics();
   }, [tasks, refreshAnalytics]);
 
@@ -340,12 +336,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateEvent = useCallback(async (event: CalendarEvent) => {
     const saved = await persistEvent(event.id, withoutId(event));
-    setEvents((prev) => prev.map((item) => (item.id === event.id ? saved : item)));
+    setEvents((prev) => replaceById(prev, saved));
   }, []);
 
   const removeEvent = useCallback(async (id: string) => {
     await deleteEvent(id);
-    setEvents((prev) => prev.filter((item) => item.id !== id));
+    setEvents((prev) => removeById(prev, id));
   }, []);
 
   const addHabit = useCallback(async (habit: Habit) => {
@@ -356,13 +352,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const updateHabit = useCallback(async (habit: Habit) => {
     const saved = await persistHabit(habit.id, withoutId(habit));
-    setHabits((prev) => prev.map((item) => (item.id === habit.id ? saved : item)));
+    setHabits((prev) => replaceById(prev, saved));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
   const removeHabit = useCallback(async (id: string) => {
     await deleteHabit(id);
-    setHabits((prev) => prev.filter((item) => item.id !== id));
+    setHabits((prev) => removeById(prev, id));
     await refreshAnalytics();
   }, [refreshAnalytics]);
 
@@ -372,7 +368,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const nextLog = { ...(current.log ?? {}) };
     nextLog[date] = !nextLog[date];
     const saved = await persistHabit(habitId, { log: nextLog });
-    setHabits((prev) => prev.map((item) => (item.id === habitId ? saved : item)));
+    setHabits((prev) => replaceById(prev, saved));
     await refreshAnalytics();
   }, [habits, refreshAnalytics]);
 
@@ -383,14 +379,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const removeWeeklyTodo = useCallback(async (id: string) => {
     await deleteWeeklyTodo(id);
-    setWeeklyTodos((prev) => prev.filter((item) => item.id !== id));
+    setWeeklyTodos((prev) => removeById(prev, id));
   }, []);
 
   const toggleWeeklyTodo = useCallback(async (id: string) => {
     const current = weeklyTodos.find((todo) => todo.id === id);
     if (!current) return;
     const saved = await persistWeeklyTodo(id, { done: !current.done });
-    setWeeklyTodos((prev) => prev.map((item) => (item.id === id ? saved : item)));
+    setWeeklyTodos((prev) => replaceById(prev, saved));
   }, [weeklyTodos]);
 
   const setTimerSetting = useCallback(async (mode: keyof TimerSettings, minutes: number) => {
@@ -423,7 +419,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const removeQuickCapture = useCallback(async (id: string) => {
     await deleteQuickCapture(id);
-    setQuickCapture((prev) => prev.filter((item) => item.id !== id));
+    setQuickCapture((prev) => removeById(prev, id));
   }, []);
 
   const saveReflection = useCallback(async (entry: Omit<ReflectionEntry, "id">) => {
@@ -431,7 +427,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setReflections((prev) => {
       const existing = prev.find((item) => item.id === saved.id);
       if (existing) {
-        return prev.map((item) => (item.id === saved.id ? saved : item));
+        return replaceById(prev, saved);
       }
       return [saved, ...prev].slice(0, 20);
     });

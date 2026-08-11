@@ -1,7 +1,5 @@
 import { prisma } from "@/lib/server/prisma";
-import { requireAuth } from "@/lib/server/auth";
-import { ApiError } from "@/lib/server/errors";
-import { handleRouteError, json, optionsResponse } from "@/lib/server/api";
+import { corsPreflight, json, superAdminRoute } from "@/lib/server/api";
 import { appSettingsSchema } from "@/lib/server/schemas";
 import { env } from "@/lib/server/env";
 
@@ -21,50 +19,22 @@ async function getOrCreateSettings() {
   });
 }
 
-export async function OPTIONS() {
-  return optionsResponse();
-}
+export { corsPreflight as OPTIONS };
 
-export async function GET() {
-  try {
-    const user = await requireAuth();
-    if (user.role !== "SUPER_ADMIN") {
-      throw new ApiError(403, "FORBIDDEN", "Only super admins can manage app settings");
-    }
+export const GET = superAdminRoute("app settings", async () => {
+  const settings = await getOrCreateSettings();
+  return json({ data: { accessPortalUrl: settings.accessPortalUrl } });
+});
 
-    const settings = await getOrCreateSettings();
-    return json({
-      data: {
-        accessPortalUrl: settings.accessPortalUrl,
-      },
-    });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+export const PUT = superAdminRoute("app settings", async ({ request }) => {
+  const body = appSettingsSchema.parse(await request.json());
+  const settings = await getOrCreateSettings();
+  const saved = await prisma.appSettings.update({
+    where: { id: settings.id },
+    data: {
+      accessPortalUrl: body.accessPortalUrl,
+    },
+  });
 
-export async function PUT(request: Request) {
-  try {
-    const user = await requireAuth();
-    if (user.role !== "SUPER_ADMIN") {
-      throw new ApiError(403, "FORBIDDEN", "Only super admins can manage app settings");
-    }
-
-    const body = appSettingsSchema.parse(await request.json());
-    const settings = await getOrCreateSettings();
-    const saved = await prisma.appSettings.update({
-      where: { id: settings.id },
-      data: {
-        accessPortalUrl: body.accessPortalUrl,
-      },
-    });
-
-    return json({
-      data: {
-        accessPortalUrl: saved.accessPortalUrl,
-      },
-    });
-  } catch (error) {
-    return handleRouteError(error);
-  }
-}
+  return json({ data: { accessPortalUrl: saved.accessPortalUrl } });
+});
